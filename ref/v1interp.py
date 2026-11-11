@@ -381,12 +381,12 @@ class Gen:
         elif k == "assign":
             _, n, e, line = s
             tgt = self.scalar_target(n, line)
-            out.append(pad + "%s = %s" % (tgt, self.expr(e)))
+            out.append(pad + "%s = %s" % (tgt, self.exprs(e)))
         elif k == "aassign":
             _, n, ix, e, line = s
             arr = self.array_ref(n, line)
             out.append(pad + "_i = %s" % self.index(n, ix))
-            out.append(pad + "%s[_i] = %s" % (arr, self.expr(e)))
+            out.append(pad + "%s[_i] = %s" % (arr, self.exprs(e)))
         elif k == "callstmt":
             _, n, args, line = s
             out.append(pad + self.call(n, args, line))
@@ -405,7 +405,7 @@ class Gen:
                 out.append(pad + "    if _S[0] > _SLIM: _steps()")
             self.body(b, out, ind + 1)
         elif k == "return":
-            out.append(pad + "_r = %s" % self.expr(s[1]))
+            out.append(pad + "_r = %s" % self.exprs(s[1]))
             out.append(pad + "_D[0] -= 1")
             out.append(pad + "return _r")
 
@@ -432,7 +432,7 @@ class Gen:
 
     def index(self, n, ix):
         size = self.garrays[n]
-        return "(_t if 0 <= (_t := %s) < %d else _oob(_t, %r, %d))" % (self.expr(ix), size, n, size)
+        return "(_t if 0 <= (_t := %s) < %d else _oob(_t, %r, %d))" % (self.exprs(ix), size, n, size)
 
     def call(self, n, args, line):
         if n in BUILTINS:
@@ -440,7 +440,7 @@ class Gen:
                 self.cerr(line, "%s takes %d argument(s)" % (n, BUILTINS[n]))
             if n == "getc":
                 return "_getc()"
-            return "_putc(%s)" % self.expr(args[0])
+            return "_putc(%s)" % self.exprs(args[0])
         if n in self.locals:
             self.cerr(line, "%r is a variable, not a function" % n)
         if n not in self.funcs:
@@ -449,42 +449,55 @@ class Gen:
             self.cerr(line, "call to undefined (or not yet defined) function %r" % n)
         if len(args) != self.funcs[n]:
             self.cerr(line, "function %r expects %d argument(s), got %d" % (n, self.funcs[n], len(args)))
-        return "f_%s(%s)" % (n, ", ".join(self.expr(a) for a in args))
+        return "f_%s(%s)" % (n, ", ".join(self.exprs(a) for a in args))
 
-    # expressions: raw() may return unnormalised value (== true value mod 2^32)
+    # expressions.  raw() returns (code, prec, needs_wrap).  prec: 3 atom/unary, 2 '*',
+    # 1 '+'/'-', 0 comparison.  needs_wrap: value is only correct modulo 2^32.
+    @staticmethod
+    def par(code, prec, need):
+        return code if prec >= need else "(" + code + ")"
+
     def expr(self, e):
-        code, raw = self.raw(e)
-        return ("(" + WRAP % code + ")") if raw else code
+        code, prec, raw = self.raw(e)
+        if raw:
+            return "(%s+2147483648&4294967295)-2147483648" % self.par(code, prec, 1), 1
+        return code, prec
+
+    def exprp(self, e, need):
+        code, prec = self.expr(e)
+        return self.par(code, prec, need)
+
+    def exprs(self, e):
+        return self.exprp(e, 0)
 
     def cond(self, e):
-        code, raw = self.raw(e)
-        if e[0] == "bin" and e[1] in ("<", "<=", ">", ">=", "==", "!="):
-            return code
+        code, prec, raw = self.raw(e)
         if raw:
-            return "((%s)&4294967295)" % code
+            return "%s&4294967295" % self.par(code, prec, 1)
         return code
 
     def raw(self, e):
         k = e[0]
         if k == "num":
-            return str(e[1]), False
+            return str(e[1]), 3, False
         if k == "var":
             _, n, line = e
-            return self.scalar_target(n, line), False
+            return self.scalar_target(n, line), 3, False
         if k == "idx":
             _, n, ix, line = e
-            return "%s[%s]" % (self.array_ref(n, line), self.index(n, ix)), False
+            return "%s[%s]" % (self.array_ref(n, line), self.index(n, ix)), 3, False
         if k == "call":
-            return self.call(e[1], e[2], e[3]), False
+            return self.call(e[1], e[2], e[3]), 3, False
         if k == "neg":
-            c, _ = self.raw(e[1])
-            return "(-(%s))" % c, True
+            c, p, _ = self.raw(e[1])
+            return "-" + self.par(c, p, 3), 3, True
         _, op, l, r, line = e
         if op in ("+", "-", "*"):
-            a, _ = self.raw(l)
-            b, _ = self.raw(r)
-            return "((%s) %s (%s))" % (a, op, b), True
-        return "(%s %s %s)" % (self.expr(l), op, self.expr(r)), False
+            pr = 2 if op == "*" else 1
+            a, ap, _ = self.raw(l)
+            b, bp, _ = self.raw(r)
+            return "%s %s %s" % (self.par(a, ap, pr), op, self.par(b, bp, pr + 1)), pr, True
+        return "%s %s %s" % (self.exprp(l, 1), op, self.exprp(r, 1)), 0, False
 
 
 def compile_v1(src_bytes, steps_enabled=False):
@@ -537,7 +550,11 @@ def run(pysrc, data, max_depth, max_steps):
            "_steps": steps, "_oob": oob, "_getc": getc, "_putc": putc}
     err = None
     try:
-        exec(compile(pysrc, "<v1>", "exec"), env)
+        try:
+            code = compile(pysrc, "<v1>", "exec")
+        except (SyntaxError, RecursionError, MemoryError):
+            return b"", "INTERPRETER LIMITATION: expression nesting too deep for the python backend"
+        exec(code, env)
         env["f_main"]()
     except RuntimeErr as e:
         err = str(e)
@@ -557,11 +574,26 @@ def main():
     a = ap.parse_args()
     with open(a.prog, "rb") as f:
         src = f.read()
-    try:
-        py = compile_v1(src, a.max_steps > 0)
-    except CompileError as e:
-        sys.stderr.write("compile error: %s\n" % e)
-        return 2
+    sys.setrecursionlimit(20000)
+    import threading
+    threading.stack_size(512 * 1024 * 1024)
+    cres = {}
+
+    def ctarget():
+        try:
+            cres["py"] = compile_v1(src, a.max_steps > 0)
+        except CompileError as e:
+            cres["err"] = ("compile error: %s" % e, 2)
+        except (RecursionError, MemoryError):
+            cres["err"] = ("interpreter limitation: program too deeply nested", 4)
+
+    ct = threading.Thread(target=ctarget)
+    ct.start()
+    ct.join()
+    if "err" in cres:
+        sys.stderr.write(cres["err"][0] + "\n")
+        return cres["err"][1]
+    py = cres["py"]
     if a.dump_py:
         sys.stdout.write(py)
         return 0
@@ -570,9 +602,6 @@ def main():
     data = sys.stdin.buffer.read()
     # depth counter: main itself is level 1 in _D; lenient mode allows limit+1
     lim = a.max_depth if a.count_main else a.max_depth + 1
-    sys.setrecursionlimit(20000)
-    import threading
-    threading.stack_size(512 * 1024 * 1024)
     res = {}
 
     def target():

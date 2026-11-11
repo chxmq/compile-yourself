@@ -1,0 +1,2 @@
+func f(a) { return a; }
+func main() { f(1, 2); }

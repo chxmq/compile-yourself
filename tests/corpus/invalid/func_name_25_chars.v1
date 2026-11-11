@@ -1,0 +1,2 @@
+func abcdefghijklmnopqrstuvwxy() { return 0; }
+func main() { }

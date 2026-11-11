@@ -1,0 +1,4 @@
+
+func main() {
+    putc(72); putc(101); putc(108); putc(108); putc(111); putc(10);
+}

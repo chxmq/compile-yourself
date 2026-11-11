@@ -1,0 +1,62 @@
+array pw[10];
+func initpw() {
+    var i;
+    pw[0] = 1;
+    i = 1;
+    while (i < 10) { pw[i] = pw[i - 1] * 10; i = i + 1; }
+    return 0;
+}
+// prints n in decimal (handles INT_MIN: never negates)
+func pnum(n) {
+    var neg; var i; var d; var started;
+    neg = 0;
+    if (n < 0) { neg = 1; putc(45); }
+    started = 0;
+    i = 9;
+    while (i >= 0) {
+        d = 0;
+        if (neg) {
+            while (n <= 0 - pw[i]) { n = n + pw[i]; d = d + 1; }
+        } else {
+            while (n >= pw[i]) { n = n - pw[i]; d = d + 1; }
+        }
+        if (started + d + (i == 0)) { putc(48 + d); started = 1; }
+        i = i - 1;
+    }
+    return 0;
+}
+func pl(n) { pnum(n); putc(10); return 0; }
+
+
+// word/line/char counter driven by a transition table
+// states: 0 = outside word, 1 = inside word.  classes: 0 = space/other, 1 = newline, 2 = letter
+array tr[6];    // tr[state*3 + class] = next state
+array cls[256];
+var words; var lines; var chars;
+func init() {
+    var i;
+    initpw();
+    i = 0;
+    while (i < 256) { cls[i] = 0; i = i + 1; }
+    cls[10] = 1;
+    i = 65; while (i <= 90) { cls[i] = 2; i = i + 1; }
+    i = 97; while (i <= 122) { cls[i] = 2; i = i + 1; }
+    tr[0] = 0; tr[1] = 0; tr[2] = 1;
+    tr[3] = 0; tr[4] = 0; tr[5] = 1;
+    return 0;
+}
+func main() {
+    var st; var c; var ns;
+    init();
+    st = 0;
+    c = getc();
+    while (c >= 0) {
+        chars = chars + 1;
+        if (c == 10) { lines = lines + 1; }
+        ns = tr[st * 3 + cls[c]];
+        if (st == 0) { if (ns == 1) { words = words + 1; } }
+        st = ns;
+        c = getc();
+    }
+    pl(lines); pl(words); pl(chars);
+}

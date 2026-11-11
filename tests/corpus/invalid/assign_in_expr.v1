@@ -1,0 +1,1 @@
+func main() { var x; putc(x = 1); }

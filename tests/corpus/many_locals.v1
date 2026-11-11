@@ -1,0 +1,44 @@
+array pw[10];
+func initpw() {
+    var i;
+    pw[0] = 1;
+    i = 1;
+    while (i < 10) { pw[i] = pw[i - 1] * 10; i = i + 1; }
+    return 0;
+}
+// prints n in decimal (handles INT_MIN: never negates)
+func pnum(n) {
+    var neg; var i; var d; var started;
+    neg = 0;
+    if (n < 0) { neg = 1; putc(45); }
+    started = 0;
+    i = 9;
+    while (i >= 0) {
+        d = 0;
+        if (neg) {
+            while (n <= 0 - pw[i]) { n = n + pw[i]; d = d + 1; }
+        } else {
+            while (n >= pw[i]) { n = n - pw[i]; d = d + 1; }
+        }
+        if (started + d + (i == 0)) { putc(48 + d); started = 1; }
+        i = i - 1;
+    }
+    return 0;
+}
+func pl(n) { pnum(n); putc(10); return 0; }
+
+
+func main() {
+    var a0; var a1; var a2; var a3; var a4; var a5; var a6; var a7; var a8; var a9;
+    var b0; var b1; var b2; var b3; var b4; var b5; var b6; var b7; var b8; var b9;
+    var c0; var c1; var c2; var c3; var c4; var c5; var c6; var c7; var c8; var c9;
+    var d0; var d1; var d2; var d3; var d4; var d5; var d6; var d7; var d8; var d9;
+    var e0; var e1; var e2; var e3; var e4; var e5; var e6; var e7; var e8; var e9;
+    initpw();
+    a0 = 1; a1 = a0 + 1; a2 = a1 + 1; a3 = a2 + 1; a4 = a3 + 1; a5 = a4 + 1; a6 = a5 + 1; a7 = a6 + 1; a8 = a7 + 1; a9 = a8 + 1;
+    b0 = a9 * 2; b1 = b0 + a1; b2 = b1 + a2; b3 = b2 + a3; b4 = b3 + a4; b5 = b4 + a5; b6 = b5 + a6; b7 = b6 + a7; b8 = b7 + a8; b9 = b8 + a9;
+    c0 = b9 - a0; c1 = c0 - b1; c2 = c1 * 2; c3 = c2 + b3; c4 = c3 - a4; c5 = c4 * a5; c6 = c5 + 1; c7 = c6 - 1; c8 = c7 * 1; c9 = c8 + 0;
+    d0 = c9 + a0; d1 = d0 + b0; d2 = d1 + c0; d3 = d2 + 1; d4 = d3 + 2; d5 = d4 + 3; d6 = d5 + 4; d7 = d6 + 5; d8 = d7 + 6; d9 = d8 + 7;
+    e0 = d9; e1 = e0 * a2; e2 = e1 + b2; e3 = e2 + c3; e4 = e3 + d4; e5 = e4 + e0; e6 = e5 + a9; e7 = e6 + b9; e8 = e7 + c9; e9 = e8 + d9;
+    pl(a9); pl(b9); pl(c9); pl(d9); pl(e9);
+}

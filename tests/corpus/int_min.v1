@@ -1,0 +1,54 @@
+array pw[10];
+func initpw() {
+    var i;
+    pw[0] = 1;
+    i = 1;
+    while (i < 10) { pw[i] = pw[i - 1] * 10; i = i + 1; }
+    return 0;
+}
+// prints n in decimal (handles INT_MIN: never negates)
+func pnum(n) {
+    var neg; var i; var d; var started;
+    neg = 0;
+    if (n < 0) { neg = 1; putc(45); }
+    started = 0;
+    i = 9;
+    while (i >= 0) {
+        d = 0;
+        if (neg) {
+            while (n <= 0 - pw[i]) { n = n + pw[i]; d = d + 1; }
+        } else {
+            while (n >= pw[i]) { n = n - pw[i]; d = d + 1; }
+        }
+        if (started + d + (i == 0)) { putc(48 + d); started = 1; }
+        i = i - 1;
+    }
+    return 0;
+}
+func pl(n) { pnum(n); putc(10); return 0; }
+
+
+func main() {
+    var m; var x;
+    initpw();
+    m = -2147483647 - 1;
+    pl(m);                  // -2147483648
+    pl(-m);                 // -2147483648
+    pl(m - 1);              // 2147483647
+    pl(m + m);              // 0
+    pl(m * -1);             // -2147483648
+    pl(m * 2);              // 0
+    pl(m * m);              // 0
+    pl(m < 2147483647);     // 1
+    pl(m <= m);             // 1
+    pl(m == -m);            // 1
+    pl(m < -m);             // 0
+    pl(m > 0);              // 0
+    pl(0 - m);              // -2147483648
+    pl(- -m);               // -2147483648
+    x = -m;
+    pl(x < 0);              // 1
+    pl(2147483647 > m);     // 1
+    pl(m + 2147483647);     // -1
+    pl(m != 0);             // 1
+}

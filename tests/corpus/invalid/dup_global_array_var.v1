@@ -1,0 +1,3 @@
+var g;
+array g[3];
+func main() { }

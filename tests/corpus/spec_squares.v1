@@ -1,0 +1,17 @@
+
+var total;
+array sq[5];
+
+func square(x) { return x * x; }
+
+func main() {
+    var i;
+    i = 0;
+    while (i < 5) {
+        sq[i] = square(i + 1);
+        total = total + sq[i];
+        i = i + 1;
+    }
+    if (total == 55) { putc(111); putc(107); }   // 1+4+9+16+25 = 55
+    putc(10);
+}   // prints "ok"

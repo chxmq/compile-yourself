@@ -1,0 +1,1 @@
+func main() { if (1) { putc(65); } else if (0) { putc(66); } }

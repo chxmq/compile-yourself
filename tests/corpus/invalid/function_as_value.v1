@@ -1,0 +1,2 @@
+func f() { return 1; }
+func main() { var x; x = f; }

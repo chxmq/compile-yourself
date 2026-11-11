@@ -1,0 +1,2 @@
+func putc(x) { return 0; }
+func main() { }

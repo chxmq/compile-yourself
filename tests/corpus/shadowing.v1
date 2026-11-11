@@ -1,0 +1,61 @@
+array pw[10];
+func initpw() {
+    var i;
+    pw[0] = 1;
+    i = 1;
+    while (i < 10) { pw[i] = pw[i - 1] * 10; i = i + 1; }
+    return 0;
+}
+// prints n in decimal (handles INT_MIN: never negates)
+func pnum(n) {
+    var neg; var i; var d; var started;
+    neg = 0;
+    if (n < 0) { neg = 1; putc(45); }
+    started = 0;
+    i = 9;
+    while (i >= 0) {
+        d = 0;
+        if (neg) {
+            while (n <= 0 - pw[i]) { n = n + pw[i]; d = d + 1; }
+        } else {
+            while (n >= pw[i]) { n = n - pw[i]; d = d + 1; }
+        }
+        if (started + d + (i == 0)) { putc(48 + d); started = 1; }
+        i = i - 1;
+    }
+    return 0;
+}
+func pl(n) { pnum(n); putc(10); return 0; }
+
+
+var x;
+var y;
+func setx(v) { x = v; return 0; }
+func param_hides(x) {
+    x = x + 100;           // modifies the parameter only
+    return x;
+}
+func local_hides() {
+    var x;
+    x = 7;
+    return x;
+}
+func local_hides_y() {
+    var y; var z;
+    y = 5; z = y + y;
+    return z;
+}
+func main() {
+    initpw();
+    x = 1; y = 2;
+    pl(param_hides(5));    // 105
+    pl(x);                 // 1
+    pl(local_hides());     // 7
+    pl(x);                 // 1
+    pl(local_hides_y());   // 10
+    pl(y);                 // 2
+    setx(42);
+    pl(x);                 // 42
+    pl(param_hides(x));    // 142
+    pl(x);                 // 42
+}

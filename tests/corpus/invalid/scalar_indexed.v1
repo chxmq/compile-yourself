@@ -1,0 +1,2 @@
+var g;
+func main() { g[0] = 1; }

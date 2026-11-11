@@ -110,3 +110,67 @@ A call graph is therefore a DAG plus direct self-recursion; there is no mutual r
 - The compiled `tier3.v1` (C1) must fit in far less than 1,048,574 words (code plus data plus stack).
 - A run on a 60 KB input must finish in under 10^10 steps. Our target is under 3×10^9.
 - Number printing has no division. Subtract descending powers of ten (a table of 10^9 .. 10^0) per digit.
+
+## Final layout (assembler)
+
+Implemented by `toolkit/sqasm.py` (`Asm`, importable; the tier-2 compiler should emit through it). Verified by `tests/test_sqasm.py` and the tier-1 programs.
+
+**File prefix (fixed):**
+
+| Address | Content |
+|---|---|
+| 0, 1, 2 | boot jump `NEG1 ZERO <entry>` = `5 3 <entry>`. It is always taken (-1 - 0 < 0). The entry is `Asm.entry` (a label) or 6 by default. |
+| 3 | `ZERO` = 0 |
+| 4 | `ONE` = 1 |
+| 5 | `NEG1` = -1 |
+| 6.. | code, 3 words per instruction, in emission order |
+
+`ZERO`, `ONE` and `NEG1` are never written. Their `Asm` names are `"ZERO"`, `"ONE"`, `"NEG1"`, and `const(0/1/-1)` returns them.
+
+**After the code (assembler default):**
+
+1. Initialised cells and arrays (nonzero or symbolic init), in declaration order.
+2. Zero-initialised cells and `bss` space, including the scratch cells `T`, `U` and `T1`.
+   These are never written to the file: trailing zero words are trimmed, since memory starts zeroed.
+3. Optionally, cells pinned with `addr=` (this is how a compiler gets the top-down region at N-3 and below).
+   The file is then dense up to the highest nonzero pinned word.
+
+**Scratch conventions.** Macros clear their own scratch before use, so no cell is assumed to hold any value on entry.
+
+| Macro | Scratch used |
+|---|---|
+| `add`, `mov`, `putc`, `jmpi` | `T` |
+| `load` | `T` |
+| `store`, `neg` | `T`, `U` |
+| compares and `beq`, `bne` | `T1`, `T` |
+
+- `getc x` needs `x != T`.
+- `negto` and `mov` require distinct operands. `mov x, x` emits nothing.
+- `slt dst, x, y` needs `dst` distinct from `x` and `y`.
+- `store p, v` needs `v` not to be `T` or `U`.
+
+**Pointer access, exact patched words** (each site allocates its own patch words, so sites never interfere):
+
+| Macro | Expansion |
+|---|---|
+| `load x,p` | `T=-p`; `[L+1] := p` (CLR, then SUB T); `T=0`; `L: T <b> +` with b patched; `x = -T`. 8 steps. |
+| `store p,v` | `T=-p`; patch `a` and `b` of `I1: <a> <b> +` and `a` of `I2: <a> U +`; `U=-v`; `I1; I2`. 12 steps. |
+| `jmpi t` | `T=-t`; `[J+2] := t`; `J: NEG1 ZERO <c>`. 5 steps. |
+
+`Program.patches` and the `--map` JSON list every patched word, which the visualiser and `sqdis` use.
+
+**Calls.** `call f, ra` is `ra = const(-retlabel)` negated (2 steps: `ra ra +` then `ra -= K_neg_ret`), then `JMP f`.
+`ret ra` is `jmpi ra`. This is a plain static-frame call: 3 steps to enter, 5 to return.
+
+**Compares.** `blt/bge/bgt/ble x,y,L` are the true signed compares (sign test first, subtract only when the signs agree).
+`beq`/`bne` subtract and test for zero (wrapping `x-y` is 0 only when `x == y`).
+`bz`, `bnz`, `bgt0` and `ble0` test the sign first, so `INT_MIN` is handled correctly.
+
+**Output formats.** `sqasm.py SRC -o out.txt [--map out.map] [--list]`. `SRC` is a `.py` file defining `build()` (or `asm`) or a `.sqa` text file.
+`sqdis.py out.txt --map out.map` disassembles with idiom names and flags patch writes.
+
+**VM facts checked against the official binary's disassembly** (see `vm/sqvm.c` header):
+- The step limit is the constant 10^8 in the official VM. `sqvm` honours `SQ_LIMIT`.
+- Exit codes: 1 for an error, 2 for a timeout.
+- `a`, `b` and `c` are all fetched before the write, so an instruction that patches its own `c` still uses the old `c`.
+- A program may have at most N-2 words.

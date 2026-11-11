@@ -1,0 +1,2 @@
+func f(a,b,c,d,e,f1,g,h,i) { return 0; }
+func main() { }

@@ -1,0 +1,51 @@
+array pw[10];
+func initpw() {
+    var i;
+    pw[0] = 1;
+    i = 1;
+    while (i < 10) { pw[i] = pw[i - 1] * 10; i = i + 1; }
+    return 0;
+}
+// prints n in decimal (handles INT_MIN: never negates)
+func pnum(n) {
+    var neg; var i; var d; var started;
+    neg = 0;
+    if (n < 0) { neg = 1; putc(45); }
+    started = 0;
+    i = 9;
+    while (i >= 0) {
+        d = 0;
+        if (neg) {
+            while (n <= 0 - pw[i]) { n = n + pw[i]; d = d + 1; }
+        } else {
+            while (n >= pw[i]) { n = n - pw[i]; d = d + 1; }
+        }
+        if (started + d + (i == 0)) { putc(48 + d); started = 1; }
+        i = i - 1;
+    }
+    return 0;
+}
+func pl(n) { pnum(n); putc(10); return 0; }
+
+
+var variable;
+var iffy; var whilex; var funcs; var returns; var arrayz; var elsewhere;
+var X; var x;
+var abcdefghijklmnopqrstuvwx;     // exactly 24 chars
+var _; var __a_1; var a1b2;
+array ARR_0[2];
+func getc2() { return 6; }
+func putc_(v) { return v; }
+func main() {
+    initpw();
+    variable = 1; iffy = 2; whilex = 3; funcs = 4; returns = 5; arrayz = 6; elsewhere = 7;
+    X = 10; x = 20;
+    abcdefghijklmnopqrstuvwx = 24;
+    _ = 100; __a_1 = 200; a1b2 = 300;
+    ARR_0[1] = 9;
+    pl(variable + iffy + whilex + funcs + returns + arrayz + elsewhere);   // 28
+    pl(X); pl(x);                      // 10 20
+    pl(abcdefghijklmnopqrstuvwx);      // 24
+    pl(_ + __a_1 + a1b2);              // 600
+    pl(ARR_0[1] + getc2() + putc_(1)); // 16
+}

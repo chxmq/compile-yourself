@@ -1,0 +1,14 @@
+
+func move(a, b) { putc(a); putc(b); putc(10); return 0; }
+func hanoi(n, from, to, via) {
+    if (n == 0) { return 0; }
+    hanoi(n - 1, from, via, to);
+    move(from, to);
+    hanoi(n - 1, via, to, from);
+    return 0;
+}
+func main() {
+    var n;
+    n = getc() - 48;
+    hanoi(n, 65, 67, 66);
+}

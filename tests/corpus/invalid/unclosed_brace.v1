@@ -1,0 +1,1 @@
+func main() { putc(65);

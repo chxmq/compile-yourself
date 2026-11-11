@@ -1,0 +1,226 @@
+array pw[10];
+func initpw() {
+    var i;
+    pw[0] = 1;
+    i = 1;
+    while (i < 10) { pw[i] = pw[i - 1] * 10; i = i + 1; }
+    return 0;
+}
+// prints n in decimal (handles INT_MIN: never negates)
+func pnum(n) {
+    var neg; var i; var d; var started;
+    neg = 0;
+    if (n < 0) { neg = 1; putc(45); }
+    started = 0;
+    i = 9;
+    while (i >= 0) {
+        d = 0;
+        if (neg) {
+            while (n <= 0 - pw[i]) { n = n + pw[i]; d = d + 1; }
+        } else {
+            while (n >= pw[i]) { n = n - pw[i]; d = d + 1; }
+        }
+        if (started + d + (i == 0)) { putc(48 + d); started = 1; }
+        i = i - 1;
+    }
+    return 0;
+}
+func pl(n) { pnum(n); putc(10); return 0; }
+
+func f0(x) { return x + 1; }
+func f1(x) { return f0(x) + 1; }
+func f2(x) { return f1(x) + 2; }
+func f3(x) { return f2(x) + 3; }
+func f4(x) { return f3(x) + 4; }
+func f5(x) { return f4(x) + 0; }
+func f6(x) { return f5(x) + 1; }
+func f7(x) { return f6(x) + 2; }
+func f8(x) { return f7(x) + 3; }
+func f9(x) { return f8(x) + 4; }
+func f10(x) { return f9(x) + 0; }
+func f11(x) { return f10(x) + 1; }
+func f12(x) { return f11(x) + 2; }
+func f13(x) { return f12(x) + 3; }
+func f14(x) { return f13(x) + 4; }
+func f15(x) { return f14(x) + 0; }
+func f16(x) { return f15(x) + 1; }
+func f17(x) { return f16(x) + 2; }
+func f18(x) { return f17(x) + 3; }
+func f19(x) { return f18(x) + 4; }
+func f20(x) { return f19(x) + 0; }
+func f21(x) { return f20(x) + 1; }
+func f22(x) { return f21(x) + 2; }
+func f23(x) { return f22(x) + 3; }
+func f24(x) { return f23(x) + 4; }
+func f25(x) { return f24(x) + 0; }
+func f26(x) { return f25(x) + 1; }
+func f27(x) { return f26(x) + 2; }
+func f28(x) { return f27(x) + 3; }
+func f29(x) { return f28(x) + 4; }
+func f30(x) { return f29(x) + 0; }
+func f31(x) { return f30(x) + 1; }
+func f32(x) { return f31(x) + 2; }
+func f33(x) { return f32(x) + 3; }
+func f34(x) { return f33(x) + 4; }
+func f35(x) { return f34(x) + 0; }
+func f36(x) { return f35(x) + 1; }
+func f37(x) { return f36(x) + 2; }
+func f38(x) { return f37(x) + 3; }
+func f39(x) { return f38(x) + 4; }
+func f40(x) { return f39(x) + 0; }
+func f41(x) { return f40(x) + 1; }
+func f42(x) { return f41(x) + 2; }
+func f43(x) { return f42(x) + 3; }
+func f44(x) { return f43(x) + 4; }
+func f45(x) { return f44(x) + 0; }
+func f46(x) { return f45(x) + 1; }
+func f47(x) { return f46(x) + 2; }
+func f48(x) { return f47(x) + 3; }
+func f49(x) { return f48(x) + 4; }
+func f50(x) { return f49(x) + 0; }
+func f51(x) { return f50(x) + 1; }
+func f52(x) { return f51(x) + 2; }
+func f53(x) { return f52(x) + 3; }
+func f54(x) { return f53(x) + 4; }
+func f55(x) { return f54(x) + 0; }
+func f56(x) { return f55(x) + 1; }
+func f57(x) { return f56(x) + 2; }
+func f58(x) { return f57(x) + 3; }
+func f59(x) { return f58(x) + 4; }
+func f60(x) { return f59(x) + 0; }
+func f61(x) { return f60(x) + 1; }
+func f62(x) { return f61(x) + 2; }
+func f63(x) { return f62(x) + 3; }
+func f64(x) { return f63(x) + 4; }
+func f65(x) { return f64(x) + 0; }
+func f66(x) { return f65(x) + 1; }
+func f67(x) { return f66(x) + 2; }
+func f68(x) { return f67(x) + 3; }
+func f69(x) { return f68(x) + 4; }
+func f70(x) { return f69(x) + 0; }
+func f71(x) { return f70(x) + 1; }
+func f72(x) { return f71(x) + 2; }
+func f73(x) { return f72(x) + 3; }
+func f74(x) { return f73(x) + 4; }
+func f75(x) { return f74(x) + 0; }
+func f76(x) { return f75(x) + 1; }
+func f77(x) { return f76(x) + 2; }
+func f78(x) { return f77(x) + 3; }
+func f79(x) { return f78(x) + 4; }
+func f80(x) { return f79(x) + 0; }
+func f81(x) { return f80(x) + 1; }
+func f82(x) { return f81(x) + 2; }
+func f83(x) { return f82(x) + 3; }
+func f84(x) { return f83(x) + 4; }
+func f85(x) { return f84(x) + 0; }
+func f86(x) { return f85(x) + 1; }
+func f87(x) { return f86(x) + 2; }
+func f88(x) { return f87(x) + 3; }
+func f89(x) { return f88(x) + 4; }
+func f90(x) { return f89(x) + 0; }
+func f91(x) { return f90(x) + 1; }
+func f92(x) { return f91(x) + 2; }
+func f93(x) { return f92(x) + 3; }
+func f94(x) { return f93(x) + 4; }
+func f95(x) { return f94(x) + 0; }
+func f96(x) { return f95(x) + 1; }
+func f97(x) { return f96(x) + 2; }
+func f98(x) { return f97(x) + 3; }
+func f99(x) { return f98(x) + 4; }
+func f100(x) { return f99(x) + 0; }
+func f101(x) { return f100(x) + 1; }
+func f102(x) { return f101(x) + 2; }
+func f103(x) { return f102(x) + 3; }
+func f104(x) { return f103(x) + 4; }
+func f105(x) { return f104(x) + 0; }
+func f106(x) { return f105(x) + 1; }
+func f107(x) { return f106(x) + 2; }
+func f108(x) { return f107(x) + 3; }
+func f109(x) { return f108(x) + 4; }
+func f110(x) { return f109(x) + 0; }
+func f111(x) { return f110(x) + 1; }
+func f112(x) { return f111(x) + 2; }
+func f113(x) { return f112(x) + 3; }
+func f114(x) { return f113(x) + 4; }
+func f115(x) { return f114(x) + 0; }
+func f116(x) { return f115(x) + 1; }
+func f117(x) { return f116(x) + 2; }
+func f118(x) { return f117(x) + 3; }
+func f119(x) { return f118(x) + 4; }
+func f120(x) { return f119(x) + 0; }
+func f121(x) { return f120(x) + 1; }
+func f122(x) { return f121(x) + 2; }
+func f123(x) { return f122(x) + 3; }
+func f124(x) { return f123(x) + 4; }
+func f125(x) { return f124(x) + 0; }
+func f126(x) { return f125(x) + 1; }
+func f127(x) { return f126(x) + 2; }
+func f128(x) { return f127(x) + 3; }
+func f129(x) { return f128(x) + 4; }
+func f130(x) { return f129(x) + 0; }
+func f131(x) { return f130(x) + 1; }
+func f132(x) { return f131(x) + 2; }
+func f133(x) { return f132(x) + 3; }
+func f134(x) { return f133(x) + 4; }
+func f135(x) { return f134(x) + 0; }
+func f136(x) { return f135(x) + 1; }
+func f137(x) { return f136(x) + 2; }
+func f138(x) { return f137(x) + 3; }
+func f139(x) { return f138(x) + 4; }
+func f140(x) { return f139(x) + 0; }
+func f141(x) { return f140(x) + 1; }
+func f142(x) { return f141(x) + 2; }
+func f143(x) { return f142(x) + 3; }
+func f144(x) { return f143(x) + 4; }
+func f145(x) { return f144(x) + 0; }
+func f146(x) { return f145(x) + 1; }
+func f147(x) { return f146(x) + 2; }
+func f148(x) { return f147(x) + 3; }
+func f149(x) { return f148(x) + 4; }
+func f150(x) { return f149(x) + 0; }
+func f151(x) { return f150(x) + 1; }
+func f152(x) { return f151(x) + 2; }
+func f153(x) { return f152(x) + 3; }
+func f154(x) { return f153(x) + 4; }
+func f155(x) { return f154(x) + 0; }
+func f156(x) { return f155(x) + 1; }
+func f157(x) { return f156(x) + 2; }
+func f158(x) { return f157(x) + 3; }
+func f159(x) { return f158(x) + 4; }
+func f160(x) { return f159(x) + 0; }
+func f161(x) { return f160(x) + 1; }
+func f162(x) { return f161(x) + 2; }
+func f163(x) { return f162(x) + 3; }
+func f164(x) { return f163(x) + 4; }
+func f165(x) { return f164(x) + 0; }
+func f166(x) { return f165(x) + 1; }
+func f167(x) { return f166(x) + 2; }
+func f168(x) { return f167(x) + 3; }
+func f169(x) { return f168(x) + 4; }
+func f170(x) { return f169(x) + 0; }
+func f171(x) { return f170(x) + 1; }
+func f172(x) { return f171(x) + 2; }
+func f173(x) { return f172(x) + 3; }
+func f174(x) { return f173(x) + 4; }
+func f175(x) { return f174(x) + 0; }
+func f176(x) { return f175(x) + 1; }
+func f177(x) { return f176(x) + 2; }
+func f178(x) { return f177(x) + 3; }
+func f179(x) { return f178(x) + 4; }
+func f180(x) { return f179(x) + 0; }
+func f181(x) { return f180(x) + 1; }
+func f182(x) { return f181(x) + 2; }
+func f183(x) { return f182(x) + 3; }
+func f184(x) { return f183(x) + 4; }
+func f185(x) { return f184(x) + 0; }
+func f186(x) { return f185(x) + 1; }
+func f187(x) { return f186(x) + 2; }
+func f188(x) { return f187(x) + 3; }
+func f189(x) { return f188(x) + 4; }
+func f190(x) { return f189(x) + 0; }
+func f191(x) { return f190(x) + 1; }
+func f192(x) { return f191(x) + 2; }
+func f193(x) { return f192(x) + 3; }
+func f194(x) { return f193(x) + 4; }
+func f195(x) { return f194(x) + 0; }
+func main() { initpw(); pl(f195(0)); pl(f100(5)); }
