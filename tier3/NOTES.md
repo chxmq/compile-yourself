@@ -2,7 +2,7 @@
 
 `tier3.v1` is a line-for-line port of `tier2/v1c.py` (the executable spec, `docs/ABI.md` "Final layout (v1c codegen)").
 It reads a v1 program on stdin and prints the machine program, one decimal word per line, byte-identical to v1c.
-No change to v1c was needed.
+It follows `tier2/v1c.py` through the code-generator optimizations of `docs/PERF.md` (they were implemented in both).
 
 ## Structure (top to bottom of the file)
 
@@ -15,7 +15,7 @@ No change to v1c was needed.
 4. **Output**: `outraw` prints a signed decimal with descending powers of ten (no division) and a newline;
    `outw` first resolves label (>= 2^30) and pool (>= 2^29) operands.
 5. **Code buffer / cells / labels**: `emit3` / `emit2` (missing `c` = next instruction), `newcell`, `lit`, `newlabel`, `place`, `tmp`.
-6. **Instruction sequences**: `mov jnz jz diff lt_jf lt_jt jmpi set_ra push_cells pop_cells ...`, the multiply routine, compare codegen.
+6. **Instruction sequences**: `mov setto jnz jz diff lt_jf lt_jt set_ra build_saved push_cells pop_cells ...`, the multiply routine, compare codegen.
 7. **Expressions**, **statements**, **declarations**, and the **driver** (`compile_pass`, `main`).
 
 ## Two passes
@@ -41,6 +41,22 @@ Fixed-size replacements for v1c's Python containers:
 | `bit_length`, bit tests | table `p2[]` of powers of two and subtraction | no shifts/ands |
 
 Data is about 0.43M words, which keeps `base >= 2^19` for every array (v1c's "array too large" rule).
+
+## Mirrors of the v1c optimizations (see docs/PERF.md, docs/ABI.md)
+
+* `parse(p)` keeps v1c's destination logic with the globals `pend`, `want`, `wantp` (`isfinal`, `result_cell`): `pend` is incremented around the
+  right operand of every operator and around parenthesis, index, unary-minus, `putc` and call-argument expressions.
+* **Memory.** The trie arrays `tch`, `tsib`, `tchild` are dead once `lex()` is done, so they are reused: `tch[i]` is v1c's `cz[i]` (a call
+  `name (` in tokens `i ..` up to the next `;`, `{` or `}`, filled by a backward pass at the end of `lex`), and `tsib[k]`/`tchild[k]` are the base
+  and size of the k-th global array (a name's binding is `2^21 + k`, no longer `2^21 + base`). Without this the data no longer fits below
+  address 2^19 (v1c's "array too large" rule), which is why `lookup_array` returns the ordinal.
+* **Self-call liveness.** `build_saved(d0)` fills `sv[]` with the cells to save. It marks in `lmark[fbase - cell]` (stamp `stamp`, never reset, so
+  pass 1 and pass 2 agree) every local whose name token occurs in `tv[s0 .. fend)`, where `s0` is `stmt0` (start of the current statement) or `loop0`
+  (the outermost enclosing `while`), `fend` is the matching `}` of the function (found by a brace scan in `compile_func`). A range longer than 4000
+  tokens is not scanned (all locals are saved).
+* The multiply routine uses the arrays `mpl`, `mnl` (pool cells of `2^j` and `-2^j`), `lent`, `lsmx` (labels) and `mlev(i)` for the dispatch levels.
+* Function bodies start with their return instruction (`emit3(NEG1, ZERO, 0)` before `fent[fi]`); the multiply routine's return instruction is the
+  first code instruction (`compile_pass`). `jmpi` and the `RA` data cells do not exist any more.
 
 ## Recursion constraints (no mutual recursion, direct self-recursion only)
 

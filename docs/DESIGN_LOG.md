@@ -20,7 +20,7 @@ machine itself.
   zero tests look at the sign of the value itself.
 - **Pointer access by self-modification** (the only way to index memory): overwrite the operand word of a later
   instruction with the address, then execute it. Each use site owns private patch words, so sites never interfere,
-  and the path is branch-free. Cost: 8 steps per load, 12 per store.
+  and the path is branch-free. Cost: 8 steps per load, 12 per store at first; later 7 and 11 (negated array storage), 2 for a literal index (docs/PERF.md).
 - **Static frames instead of a stack for every call.** Each function's parameters, locals, temporaries and return
   address are fixed cells, so almost every operand is a plain direct address (cheap, and no stack-pointer
   arithmetic). Only self-recursive call sites save and restore the frame (below).

@@ -131,7 +131,8 @@ dp = N - 3       # next free data cell (cells are allocated downwards)
 T = U = T1 = RV = 0
 gvarcells = {}   # cell address -> True for global scalars (the only operand cells a call can change)
 mul_used = False
-MA = MB = MR = MC = MNA = MRA = 0
+MA = MB = MR = MNA = 0
+MRA = CODE0 + 2        # patch word (c field) of the multiply routine's return instruction, the first code instruction
 LMUL = 0
 LBOOT = 0
 
@@ -147,6 +148,10 @@ f_ra = 0
 f_params = []
 f_locals = {}    # name -> cell (params and locals)
 f_local_order = []   # cells of params then declared locals, declaration order
+f_local_names = []   # their names
+fend = 0         # token index of the closing brace of the current function
+loop0 = -1       # token index of the outermost enclosing while (-1: not in a loop)
+stmt0 = 0        # token index where the current statement starts
 tcells = []      # temp index -> cell
 tset = {}        # temp cell -> True
 depth = 0        # number of temps currently reserved
@@ -239,37 +244,49 @@ def diff(t, x, y):
     emit(t, t); emit(T, T); emit(T, x); emit(t, T); emit(t, y)
 
 
+def istemp(c):
+    """expression temp: dead after the comparison that consumes it, so it may be overwritten"""
+    return c in tset
+
+
 def lt_jf(x, y, lf):
-    """if !(x < y) goto lf, else fall through.  True signed compare."""
+    """if !(x < y) goto lf, else fall through.  True signed compare.
+    The difference is computed in x itself (1 step) when x is a temp, else into T1 (5 steps)."""
     p = pc()
-    emit(x, ZERO, p + 27)
+    nd = 1 if istemp(x) else 5
+    a2 = p + 12 + 3 * nd                       # both operands negative: same sign
+    emit(x, ZERO, a2)
     emit(y, ZERO, lf)
-    diff(T1, x, y)                 # same sign: no overflow
-    emit(T1, ZERO, p + 30)
+    if nd == 1:
+        emit(x, y)
+        d = x
+    else:
+        diff(T1, x, y)                         # same sign: no overflow
+        d = T1
+    emit(d, ZERO, a2 + 3)
     jmp(lf)
-    emit(y, ZERO, p + 6)           # p+27: both negative -> same
-    # p+30: true (x < 0 <= y) falls here
+    emit(y, ZERO, p + 6)                       # a2
+    # a2+3: true (x < 0 <= y) falls here
 
 
 def lt_jt(x, y, lt):
     """if x < y goto lt, else fall through."""
     p = pc()
-    emit(x, ZERO, p + 27)
-    emit(y, ZERO, p + 33)
-    diff(T1, x, y)
-    emit(T1, ZERO, lt)
-    jmp(p + 33)
-    emit(y, ZERO, p + 6)           # p+27
-    jmp(lt)                        # p+30: x < 0 <= y
-    # p+33: false falls here
-
-
-def jmpi(cell):
-    """goto mem[cell]; patched c word of the last instruction.  5 steps."""
-    p = pc()
-    w = p + 12 + 2
-    emit(T, T); emit(T, cell); emit(w, w); emit(w, T)
-    emit(NEG1, ZERO, 0)
+    nd = 1 if istemp(x) else 5
+    a2 = p + 12 + 3 * nd
+    emit(x, ZERO, a2)
+    emit(y, ZERO, a2 + 6)
+    if nd == 1:
+        emit(x, y)
+        d = x
+    else:
+        diff(T1, x, y)
+        d = T1
+    emit(d, ZERO, lt)
+    jmp(a2 + 6)
+    emit(y, ZERO, p + 6)                       # a2
+    jmp(lt)                                    # a2+3: x < 0 <= y
+    # a2+6: false falls here
 
 
 def set_ra(ra, retaddr):
@@ -279,34 +296,33 @@ def set_ra(ra, retaddr):
 
 
 def push_cells(cells):
-    """push cells onto the software stack (SP = POOLB+0, grows downwards): 2 + 11m + 1 steps."""
+    """push cells onto the software stack (SP = POOLB+0, grows downwards); each cell is stored negated.
+    2 + 9m + 1 steps."""
     SP = POOLB
     emit(T, T); emit(T, SP)                        # T = -SP
     for ck in cells:
         b = pc()
-        w1, w2, w3 = b + 24, b + 25, b + 27
+        w1, w2, w3 = b + 18, b + 19, b + 21
         emit(w1, w1); emit(w1, T)
         emit(w2, w2); emit(w2, T)
         emit(w3, w3); emit(w3, T)
-        emit(U, U); emit(U, ck)                    # U = -ck
         emit(0, 0)                                 # [p] = 0   (a, b patched)
-        emit(0, U)                                 # [p] -= -ck (a patched)
+        emit(0, ck)                                # [p] -= ck (a patched): [p] = -ck
         emit(T, NEG1)                              # T = -(p-1)
     emit(SP, lit(len(cells)))                      # SP -= m
 
 
 def pop_cells(cells):
-    """inverse of push_cells: 1 + 2 + 7m steps."""
+    """inverse of push_cells: 1 + 2 + 5m steps."""
     SP = POOLB
     emit(SP, lit(-len(cells)))                     # SP += m
     emit(T, T); emit(T, SP)
     for ck in cells:
         b = pc()
-        w = b + 9 + 1
+        w = b + 3 + 1 + 3 + 3
         emit(w, w); emit(w, T)
-        emit(U, U)
-        emit(U, 0)                                 # U -= mem[b]  (b patched)
-        emit(ck, ck); emit(ck, U)
+        emit(ck, ck)
+        emit(ck, 0)                                # ck -= mem[b+9]  (b patched): ck = -(-ck)
         emit(T, NEG1)
 
 
@@ -391,12 +407,15 @@ def primary():
         eatop("]")
         depth = d0 + 1
         res = result_cell(d0, 0, 0, "")
+        ci = constval(i)
+        if ci is not None and 0 <= ci < size:
+            emit(res, res); emit(res, base + ci)   # constant index: res = -(stored -a[c])
+            return res
         p0 = pc()
         wpatch = p0 + 18 + 1
         emit(T, T); emit(T, i)
         emit(wpatch, wpatch); emit(wpatch, T); emit(wpatch, lit(-base))
-        emit(T, T); emit(T, 0)
-        emit(res, res); emit(res, T)
+        emit(res, res); emit(res, 0)               # arrays hold the negated values
         return res
     return lookup_scalar(v)
 
@@ -438,20 +457,37 @@ def constval(c):
 
 
 def mul_const(res, x, c):
-    """res = x * c for a compile-time constant c: Horner over the bits of |c|, then negate if c < 0"""
+    """res = x * c for a compile-time constant c: Horner over the bits of |c|.
+    res != x: the top two bits are loaded as 2 or 3 subtractions of -x (or, for c < 0, of x: the result
+    is built negated, so there is no final negation).  res == x: in place, then negate if c < 0."""
     if c == 0:
         clr(res)
         return
     neg = c < 0
-    m = (-c) & 0xFFFFFFFF if neg else c
+    m = -c if neg else c
     nb = m.bit_length()
+    if res != x:
+        if nb == 1:
+            if neg:
+                clr(res); emit(res, x)             # res = -x
+            else:
+                mov(res, x)
+            return
+        if neg:
+            k = x                                  # res -= x adds -x
+        else:
+            emit(U, U); emit(U, x)                 # U = -x
+            k = U
+        clr(res)
+        for _ in range(m >> (nb - 2)):             # 2 or 3
+            emit(res, k)
+        for bit in range(nb - 3, -1, -1):
+            emit(T, T); emit(T, res); emit(res, T)     # res += res
+            if (m >> bit) & 1:
+                emit(res, k)
+        return
     if m & (m - 1):
         emit(U, U); emit(U, x)                     # U = -x
-    if res != x:
-        if m & (m - 1):
-            emit(res, res); emit(res, U)           # res = x  (U = -x)
-        else:
-            mov(res, x)
     for bit in range(nb - 2, -1, -1):
         emit(T, T); emit(T, res); emit(res, T)     # res += res
         if (m >> bit) & 1:
@@ -462,7 +498,7 @@ def mul_const(res, x, c):
 
 
 def gen_mul(res, l, r):
-    global mul_used, MA, MB, MR, MC, MNA, MRA, LMUL
+    global mul_used, MA, MB, MR, MNA, LMUL
     cr = constval(r)
     cl = constval(l)
     if cr is not None:
@@ -473,7 +509,7 @@ def gen_mul(res, l, r):
         return
     if not mul_used:
         mul_used = True
-        MA = newcell(); MB = newcell(); MR = newcell(); MC = newcell(); MNA = newcell(); MRA = newcell()
+        MA = newcell(); MB = newcell(); MR = newcell(); MNA = newcell()
         LMUL = newlabel()
     mov(MA, l)
     mov(MB, r)
@@ -482,47 +518,63 @@ def gen_mul(res, l, r):
     mov(res, MR)
 
 
-def small_jt(x, limit, lt):
-    """if 0 <= x < limit goto lt, else fall through"""
-    lno = newlabel()
-    emit(x, ZERO, lno)
-    diff(T1, x, lit(limit))
-    emit(T1, ZERO, lt)
-    place(lno)
+MUL_LEVELS = (3, 6, 10, 14, 18, 22, 26, 30)     # magnitude dispatch: MB < 2^e enters the bit test of bit e-1
 
 
 def emit_mul_routine():
-    """MR = MA * MB mod 2^32.
-    If either operand is in 0..23 it is the multiplier of a repeated addition (3 steps per unit);
-    otherwise MSB-first shift-and-add over the 32 bits of MB (~10 steps per bit)."""
-    lswap = newlabel(); lsmall = newlabel(); lfull = newlabel(); lret = newlabel()
+    """MR = MA * MB mod 2^32 (see docs/ABI.md).
+    Sign fix: MB < 0 becomes -MB and the multiplicand sign is flipped (MNA = -MA, or MA after the flip), so the
+    multiplier is in 0..2^31-1 (INT_MIN is the one value that stays negative; it is MA << 31).
+    MB < 8: repeated addition.  Otherwise the unrolled MSB-first bit tests of MB against 2^j (subtract; if negative
+    add back), entered at the highest bit that can be set: about 5.5 steps per bit."""
+    mp = [lit(1 << j) for j in range(31)]
+    mn = [lit(-(1 << j)) for j in range(31)]
+    lneg = newlabel(); ldisp = newlabel(); lmin = newlabel(); ld30 = newlabel()
+    lret = CODE0                                   # the return instruction at the start of the code
+    lent = [newlabel() for j in range(31)]
+    lsm = {}
+    for e in MUL_LEVELS:
+        lsm[e] = newlabel()
     place(LMUL)
     clr(MR)
-    small_jt(MB, 24, lsmall)
-    small_jt(MA, 24, lswap)
-    jmp(lfull)
-    place(lswap)
-    mov(U, MA); mov(MA, MB); mov(MB, U)
-    place(lsmall)
+    emit(MB, ZERO, lneg)                           # MB < 0 ?
     emit(MNA, MNA); emit(MNA, MA)                  # MNA = -MA
-    p = pc()
-    emit(MB, ONE, lret)                            # --MB < 0 -> done
-    emit(MR, MNA)                                  # MR += MA
-    jmp(p)
-    place(lfull)
-    emit(MNA, MNA); emit(MNA, MA)
-    mov(MC, lit(31))
-    top = pc()
-    emit(T, T); emit(T, MR); emit(MR, T)           # MR += MR
-    q = pc()
-    emit(MB, ZERO, q + 18)                         # MB < 0 -> add block
-    emit(T, T); emit(T, MB); emit(MB, T)           # q+3: MB += MB
-    emit(MC, ONE, lret)                            # q+12: --MC < 0 -> done
-    jmp(top)                                       # q+15
-    emit(MR, MNA)                                  # q+18: MR -= -MA
-    jmp(q + 3)                                     # q+21
-    place(lret)
-    jmpi(MRA)
+    place(ldisp)
+    for e in MUL_LEVELS:
+        emit(MB, mp[e], lsm[e])                    # MB < 2^e ?  (MB -= 2^e, negative)
+        emit(MB, mn[e])                            # no: restore
+    jmp(lent[30])
+    for e in reversed(MUL_LEVELS):
+        place(lsm[e])
+        emit(MB, mn[e])                            # restore
+        if e == 3:
+            p = pc()
+            emit(MB, ONE, lret)                    # --MB < 0 -> done
+            emit(MR, MNA)                          # MR += multiplicand
+            jmp(p)
+        else:
+            jmp(lent[e - 1])
+    place(lneg)
+    emit(U, U); emit(U, MB)                        # U = -MB
+    mov(MB, U)                                     # MB = -MB
+    mov(MNA, MA)                                   # MNA = MA: MR -= MNA adds -MA
+    emit(MB, ZERO, lmin)                           # still negative: INT_MIN
+    jmp(ldisp)
+    place(lmin)
+    emit(MB, mn[30]); emit(MB, mn[30])             # MB += 2^31 -> 0
+    emit(MR, MNA)                                  # MR = +-MA, then 31 doublings
+    jmp(ld30)
+    for j in range(30, -1, -1):
+        if j == 30:
+            place(ld30)
+        b = pc()
+        emit(T, T); emit(T, MR); emit(MR, T)       # MR += MR
+        place(lent[j])
+        emit(MB, mp[j], b + 18)                    # bit j clear: MB < 2^j
+        emit(MR, MNA)                              # bit j set: MR += multiplicand
+        jmp(b + 21)
+        emit(MB, mn[j])                            # b+18: restore
+    jmp(lret)
 
 
 def add_sub(res, l, r, op):
@@ -539,13 +591,8 @@ def add_sub(res, l, r, op):
             else:
                 emit(T, T); emit(T, r); emit(res, T)
         else:
-            if cl is not None and cr is None:
-                l, r = r, l
-                cl, cr = cr, cl
-            if cr is not None:
-                emit(res, res); emit(T, T); emit(T, l); emit(res, T); emit(res, lit(-cr))
-            else:
-                emit(res, res); emit(T, T); emit(T, r); emit(res, T); emit(T, T); emit(T, l); emit(res, T)
+            emit(T, T); emit(T, l); emit(T, r)     # T = -(l + r)
+            emit(res, res); emit(res, T)
     else:
         if l == res:
             emit(res, r)
@@ -603,13 +650,33 @@ def iscmp():
 def cmp_jf(op, l, r, lf):
     """emit: jump to lf if (l op r) is false, fall through when true"""
     if op == "==" or op == "!=":
-        if l == ZERO and r != ZERO:
+        if constval(l) is not None and constval(r) is None:
             l, r = r, l
         if r == ZERO:
             d = l
+        elif constval(l) is None and constval(r) is not None:
+            # compare with a literal c: subtract c in place, test for zero, add it back
+            nk = lit(-constval(r))
+            p = pc()
+            emit(l, r)
+            emit(l, ZERO, p + 18)
+            emit(T, T); emit(T, l, p + 18)
+            if op == "==":                         # false (-> lf) unless x - c == 0
+                emit(l, nk); jmp(p + 24)
+                emit(l, nk); jmp(lf)
+            else:                                  # false (-> lf) if x - c == 0
+                emit(l, nk); jmp(lf)
+                emit(l, nk)
+            return
         else:
-            diff(T1, l, r)
-            d = T1
+            if istemp(r) and not istemp(l):
+                l, r = r, l
+            if istemp(l):
+                emit(l, r)                         # difference in the temp
+                d = l
+            else:
+                diff(T1, l, r)
+                d = T1
         if op == "==":
             jnz(d, lf)
         else:
@@ -627,6 +694,27 @@ def cmp_jf(op, l, r, lf):
         else:                                      # "<=": false if l > 0
             p = pc()
             emit(l, ZERO, p + 9); emit(T, T); emit(T, l, lf)
+        return
+    cr = constval(r)
+    if cr is not None and cr > 0 and cr < INT_MAX and constval(l) is None:
+        # compare with a positive literal c: subtract c in place, test the sign, add it back (4 steps)
+        k = r
+        if op == "<=" or op == ">":                # x <= c  is  x < c+1 ;  x > c  is  x >= c+1
+            cr += 1
+            k = lit(cr)
+            op = "<" if op == "<=" else ">="
+        nk = lit(-cr)
+        p = pc()
+        if op == "<":                              # false if x >= c
+            emit(l, ZERO, p + 15)                  # x < 0: true
+            emit(l, k, p + 12)                     # x - c < 0: true (after restoring)
+            emit(l, nk); jmp(lf)
+            emit(l, nk)                            # p+12
+        else:                                      # ">=": false if x < c
+            emit(l, ZERO, lf)
+            emit(l, k, p + 12)
+            emit(l, nk); jmp(p + 18)
+            emit(l, nk); jmp(lf)                   # p+12: x < c, restore
         return
     if op == "<":
         lt_jf(l, r, lf)
@@ -698,6 +786,23 @@ def cond(lf):
     depth = d0
 
 
+LIVE_SCAN_MAX = 4000    # longer ranges are not scanned: every local is saved
+
+
+def live_locals():
+    """cells of the params and locals that a self call must save: those whose name occurs from the start of the
+    current statement (pending operands) to the end of the function, or from the start of the outermost
+    enclosing loop (the loop body runs again)"""
+    s0 = loop0 if loop0 >= 0 else stmt0
+    if fend - s0 > LIVE_SCAN_MAX:
+        return list(f_local_order)
+    refs = set()
+    for i in range(s0, fend):
+        if tkind[i] == K_NAME:
+            refs.add(tval[i])
+    return [c for c, nm in zip(f_local_order, f_local_names) if nm in refs]
+
+
 # ------------------------------------------------------------------ calls
 def call(name):
     """name '(' args ')' ; returns the operand cell holding the result"""
@@ -759,7 +864,7 @@ def call(name):
     if len(args) != nparams:
         err("function %r expects %d argument(s), got %d" % (name, nparams, len(args)))
     if selfcall:
-        saved = [f_ra] + f_local_order + [tcells[i] for i in range(d0)]
+        saved = [f_ra] + live_locals() + [tcells[i] for i in range(d0)]
         push_cells(saved)
     for i in range(nparams):
         setto(pcells[i], args[i])
@@ -795,19 +900,31 @@ def declare_local(name):
     c = newcell()
     f_locals[name] = c
     f_local_order.append(c)
+    f_local_names.append(name)
 
 
 def do_return_value(v):
     setto(RV, v)
-    jmpi(f_ra)
+    jmp(f_ra - 2)
 
 
 stmtmap = []     # (pc, source line) at each statement start; only written when V1C_MAP is set (profiling aid)
 
 
+def simple_value():
+    """the value of an array assignment is a literal or a variable (parsing it emits no code)"""
+    k = tkind[tp]
+    if k == K_NUM or k == K_NAME:
+        return tkind[tp + 1] == K_OP and tval[tp + 1] == ";"
+    if k == K_OP and tval[tp] == "-":
+        return tkind[tp + 1] == K_NUM and tkind[tp + 2] == K_OP and tval[tp + 2] == ";"
+    return False
+
+
 def statement():
-    global tp, depth, pend, want, wantp, stmtcall
+    global tp, depth, pend, want, wantp, stmtcall, loop0, stmt0
     depth = 0
+    stmt0 = tp
     pend = 0
     want = 0
     stmtcall = False
@@ -838,6 +955,9 @@ def statement():
             else:
                 place(lelse)
         elif v == "while":
+            saved_l0 = loop0
+            if loop0 < 0:
+                loop0 = tp
             tp += 1
             eatop("(")
             ltop = newlabel()
@@ -848,6 +968,7 @@ def statement():
             block()
             jmp(ltop)
             place(lend)
+            loop0 = saved_l0
         elif v == "return":
             tp += 1
             if isop(";"):
@@ -879,22 +1000,37 @@ def statement():
         i = expression()
         eatop("]")
         eatop("=")
-        d0 = depth
-        depth = d0 + 1
-        pt = tmp(d0)
-        if i == pt:
-            emit(pt, lit(-base))                   # pt += base
+        ci = constval(i)
+        if ci is not None and 0 <= ci < size:
+            val = expression()
+            eatop(";")
+            emit(base + ci, base + ci); emit(base + ci, val)   # a[c] = -v
+            return
+        if simple_value():
+            val = expression()                     # no code: the pointer can go straight into T
+            eatop(";")
+            emit(T, T); emit(T, i); emit(T, lit(base))         # T = -(i + base)
+            src = T
         else:
-            emit(pt, pt); emit(T, T); emit(T, i); emit(pt, T); emit(pt, lit(-base))
-        val = expression()
-        eatop(";")
+            d0 = depth
+            depth = d0 + 1
+            pt = tmp(d0)
+            if i == pt:
+                emit(pt, lit(-base))               # pt = i + base
+                val = expression()
+                eatop(";")
+                emit(T, T); emit(T, pt)            # T = -pt
+                src = T
+            else:
+                emit(pt, pt); emit(pt, i); emit(pt, lit(base))  # pt = -(i + base), kept across the value
+                val = expression()
+                eatop(";")
+                src = pt
         p0 = pc()
-        w1, w2, w3 = p0 + 30, p0 + 31, p0 + 33
-        emit(T, T); emit(T, pt)
-        emit(w1, w1); emit(w1, T); emit(w2, w2); emit(w2, T); emit(w3, w3); emit(w3, T)
-        emit(U, U); emit(U, val)
+        w1, w2, w3 = p0 + 18, p0 + 19, p0 + 21
+        emit(w1, w1); emit(w1, src); emit(w2, w2); emit(w2, src); emit(w3, w3); emit(w3, src)
         emit(0, 0)
-        emit(0, U)
+        emit(0, val)                               # [p] = -val
     elif isop("("):
         stmtcall = True
         call(v)
@@ -904,7 +1040,7 @@ def statement():
 
 
 def function():
-    global tp, nfuncs, fname, f_ra, f_params, f_locals, f_local_order, tcells, tset, depth
+    global tp, nfuncs, fname, f_ra, f_params, f_locals, f_local_order, f_local_names, fend, tcells, tset, depth
     tp += 1
     name = eatname()
     nfuncs += 1
@@ -929,8 +1065,21 @@ def function():
     tset = {}
     f_locals = {}
     f_local_order = []
+    f_local_names = []
+    j = tp
+    d = 0
+    while tkind[j] != K_EOF:                       # find the end of the function body
+        if tkind[j] == K_OP and tval[j] == "{":
+            d += 1
+        elif tkind[j] == K_OP and tval[j] == "}":
+            d -= 1
+            if d == 0:
+                break
+        j += 1
+    fend = j
     depth = 0
-    f_ra = newcell()
+    f_ra = pc() + 2                                 # the c word of the return instruction, patched by the callers
+    emit(NEG1, ZERO, 0)
     pcells = []
     entry = pc()
     funcs[name] = [entry, len(pnames), pcells, f_ra]
@@ -942,10 +1091,11 @@ def function():
         c = newcell()
         f_locals[pn] = c
         f_local_order.append(c)
+        f_local_names.append(pn)
         pcells.append(c)
     block()
     clr(RV)
-    jmpi(f_ra)
+    jmp(f_ra - 2)
 
 
 def global_decl():
@@ -992,6 +1142,7 @@ def compile_v1(src):
     T = newcell(); U = newcell(); T1 = newcell(); RV = newcell()
     pool.append(0)                                  # pool[0] = SP, filled in below
     LBOOT = newlabel()
+    emit(NEG1, ZERO, 0)                             # return instruction of the multiply routine (address CODE0)
     f_locals = {}
     tp = 0
     while tkind[tp] != K_EOF:

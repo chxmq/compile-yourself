@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-source-line step profile.   usage: tools/v1prof.py prog.v1 [input]
+"""Per-source-line step profile.   usage: [V1C=other_compiler.py] tools/v1prof.py prog.v1 [input]
 Compiles with tier2/v1c.py (V1C_MAP), runs vm/sqvm --profile, prints steps per source line (top 25)
 and the share of steps outside any statement (runtime routines, call glue after the last statement start)."""
 import os, subprocess, sys, tempfile, collections
@@ -8,7 +8,7 @@ src = sys.argv[1]
 inp = open(sys.argv[2], "rb").read() if len(sys.argv) > 2 else b""
 d = tempfile.mkdtemp()
 env = dict(os.environ, V1C_MAP=d + "/map")
-subprocess.run([sys.executable, root + "/tier2/v1c.py"], stdin=open(src), stdout=open(d + "/p.txt", "w"), env=env, check=True)
+subprocess.run([sys.executable, os.environ.get("V1C", root + "/tier2/v1c.py")], stdin=open(src), stdout=open(d + "/p.txt", "w"), env=env, check=True)
 subprocess.run([root + "/vm/sqvm", "--profile", d + "/prof", d + "/p.txt"], input=inp, stdout=subprocess.DEVNULL, check=False)
 smap = [tuple(map(int, l.split())) for l in open(d + "/map")]
 hits = [tuple(map(int, l.split())) for l in open(d + "/prof")]

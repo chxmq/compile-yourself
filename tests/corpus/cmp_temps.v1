@@ -1,0 +1,63 @@
+array a[16];
+func main() {
+    var i; var j; var x; var y; var t;
+    a[0] = 0;
+    a[1] = 1;
+    a[2] = (0 - 1);
+    a[3] = 2;
+    a[4] = (0 - 2);
+    a[5] = 100;
+    a[6] = (0 - 100);
+    a[7] = 65536;
+    a[8] = 2147483647;
+    a[9] = (0 - 2147483647);
+    a[10] = (0 - 2147483647 - 1);
+    a[11] = 1073741824;
+    a[12] = (0 - 1073741824);
+    i = 0;
+    while (i < 13) {
+        j = 0;
+        while (j < 13) {
+            x = a[i]; y = a[j];
+            if (a[i] < a[j]) { putc(49); } else { putc(48); }
+            if (a[i] < y) { putc(49); } else { putc(48); }
+            if (x < a[j]) { putc(49); } else { putc(48); }
+            if (x < y) { putc(49); } else { putc(48); }
+            if ((a[i] + 0) < (a[j] - 0)) { putc(49); } else { putc(48); }
+            t = (a[i] < a[j]); putc(48 + t);
+            if (a[i] <= a[j]) { putc(49); } else { putc(48); }
+            if (a[i] <= y) { putc(49); } else { putc(48); }
+            if (x <= a[j]) { putc(49); } else { putc(48); }
+            if (x <= y) { putc(49); } else { putc(48); }
+            if ((a[i] + 0) <= (a[j] - 0)) { putc(49); } else { putc(48); }
+            t = (a[i] <= a[j]); putc(48 + t);
+            if (a[i] > a[j]) { putc(49); } else { putc(48); }
+            if (a[i] > y) { putc(49); } else { putc(48); }
+            if (x > a[j]) { putc(49); } else { putc(48); }
+            if (x > y) { putc(49); } else { putc(48); }
+            if ((a[i] + 0) > (a[j] - 0)) { putc(49); } else { putc(48); }
+            t = (a[i] > a[j]); putc(48 + t);
+            if (a[i] >= a[j]) { putc(49); } else { putc(48); }
+            if (a[i] >= y) { putc(49); } else { putc(48); }
+            if (x >= a[j]) { putc(49); } else { putc(48); }
+            if (x >= y) { putc(49); } else { putc(48); }
+            if ((a[i] + 0) >= (a[j] - 0)) { putc(49); } else { putc(48); }
+            t = (a[i] >= a[j]); putc(48 + t);
+            if (a[i] == a[j]) { putc(49); } else { putc(48); }
+            if (a[i] == y) { putc(49); } else { putc(48); }
+            if (x == a[j]) { putc(49); } else { putc(48); }
+            if (x == y) { putc(49); } else { putc(48); }
+            if ((a[i] + 0) == (a[j] - 0)) { putc(49); } else { putc(48); }
+            t = (a[i] == a[j]); putc(48 + t);
+            if (a[i] != a[j]) { putc(49); } else { putc(48); }
+            if (a[i] != y) { putc(49); } else { putc(48); }
+            if (x != a[j]) { putc(49); } else { putc(48); }
+            if (x != y) { putc(49); } else { putc(48); }
+            if ((a[i] + 0) != (a[j] - 0)) { putc(49); } else { putc(48); }
+            t = (a[i] != a[j]); putc(48 + t);
+            j = j + 1;
+        }
+        putc(10);
+        i = i + 1;
+    }
+}

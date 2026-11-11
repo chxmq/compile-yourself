@@ -7,13 +7,16 @@
 // literal pool; pass 2 emits.  Invalid input makes fail() raise a VM error (nonzero exit).
 
 // ------------------------------------------------------------------ state
-array cz[60002];        // cz[i] = 1 when a call "name (" occurs in tokens i .. next ; { }
+var narr;
 array tv[60002];        // packed tokens: number v -> -1-v ; else kind*65536+value (2 name node, 3 keyword, 4 op); 0 = EOF
 var ntk;
 var tp;                 // index of current token
 var ck;                 // kind of current token (0 eof, 1 num, 2 name, 3 kw, 4 op)
 var cv;                 // value of current token
 
+// The three trie arrays are only needed while lexing; afterwards they are reused (they are the biggest dead memory):
+//   tch[i]    = cz[i]: 1 when a call "name (" occurs in tokens i .. next ; { }   (set at the end of lex)
+//   tsib[k]   = base address of the k-th global array,  tchild[k] = its size
 array tch[60200];       // trie: character of node
 array tsib[60200];      // next sibling
 array tchild[60200];   // first child
@@ -42,7 +45,6 @@ var mul_used;
 var MA;
 var MB;
 var MR;
-var MC;
 var MNA;
 var MRA;
 var LMUL;
@@ -52,6 +54,11 @@ var pend;               // operators whose right operand is being parsed
 var want;               // destination cell for the value of the expression being parsed (0 none)
 var wantp;              // pend value at which want applies
 var stmtcall;           // the call being parsed is a whole statement
+var fend;               // token index of the closing brace of the current function
+var loop0;              // token index of the outermost enclosing while (-1: none)
+var stmt0;              // token index where the current statement starts
+var fbase;              // dp at the start of the current function (cell offsets index lmark)
+var stamp;              // call-site counter: lmark[x] == stamp marks a local referenced later
 var nt;                 // number of temps created in this function
 var nfuncs;
 var curfn;
@@ -73,6 +80,12 @@ array fnp[200];
 array fra[200];
 array fpc[1600];
 array argstk[4100];
+array mpl[32];
+array mnl[32];
+array lent[32];
+array lsmx[32];
+array lmark[14400];
+array sv[14400];         // cells saved by the self call being compiled
 array p10[10];
 array p2[32];
 array pnn[16];
@@ -245,7 +258,7 @@ func lex() {
                 if (x >= 131072) { if (x < 196608) { c = 1; } }
             }
         }
-        cz[v] = c;
+        tch[v] = c;
         v = v - 1;
     }
     return 0;
@@ -450,39 +463,57 @@ func diff(t, x, y) {
     return 0;
 }
 
+// expression temp: dead after the comparison that consumes it, so it may be overwritten
+func istemp(c) {
+    var i;
+    i = 0;
+    while (i < nt) {
+        if (tcells[i] == c) { return 1; }
+        i = i + 1;
+    }
+    return 0;
+}
+
 func lt_jf(x, y, lf) {
-    var p;
+    var p; var nd; var a2; var d;
     p = pc();
-    emit3(x, ZERO, p + 27);
+    nd = 5;
+    if (istemp(x)) { nd = 1; }
+    a2 = p + 12 + 3 * nd;
+    emit3(x, ZERO, a2);
     emit3(y, ZERO, lf);
-    diff(T1, x, y);
-    emit3(T1, ZERO, p + 30);
+    if (nd == 1) {
+        emit2(x, y);
+        d = x;
+    } else {
+        diff(T1, x, y);
+        d = T1;
+    }
+    emit3(d, ZERO, a2 + 3);
     jmp(lf);
     emit3(y, ZERO, p + 6);
     return 0;
 }
 
 func lt_jt(x, y, lt) {
-    var p;
+    var p; var nd; var a2; var d;
     p = pc();
-    emit3(x, ZERO, p + 27);
-    emit3(y, ZERO, p + 33);
-    diff(T1, x, y);
-    emit3(T1, ZERO, lt);
-    jmp(p + 33);
+    nd = 5;
+    if (istemp(x)) { nd = 1; }
+    a2 = p + 12 + 3 * nd;
+    emit3(x, ZERO, a2);
+    emit3(y, ZERO, a2 + 6);
+    if (nd == 1) {
+        emit2(x, y);
+        d = x;
+    } else {
+        diff(T1, x, y);
+        d = T1;
+    }
+    emit3(d, ZERO, lt);
+    jmp(a2 + 6);
     emit3(y, ZERO, p + 6);
     jmp(lt);
-    return 0;
-}
-
-func jmpi(cell) {
-    var w;
-    w = pc() + 14;
-    emit2(T, T);
-    emit2(T, cell);
-    emit2(w, w);
-    emit2(w, T);
-    emit3(NEG1, ZERO, 0);
     return 0;
 }
 
@@ -492,11 +523,52 @@ func set_ra(ra, retaddr) {
     return 0;
 }
 
-// k-th saved cell of a self call: RA, then params+locals declared so far, then temps 0..d0-1
-func savedcell(k) {
-    if (k == 0) { return f_ra; }
-    if (k <= nloc) { return gb[locnode[k - 1]] - 33554432; }
-    return tcells[k - 1 - nloc];
+// fill sv[] with the cells a self call must save: RA, the params/locals whose name occurs from the start of the
+// current statement (or of the outermost enclosing loop) to the end of the function, then temps 0..d0-1.
+// Returns their number.
+func build_saved(d0) {
+    var s0; var i; var x; var k; var m; var c;
+    s0 = stmt0;
+    if (loop0 >= 0) { s0 = loop0; }
+    sv[0] = f_ra;
+    m = 1;
+    if (fend - s0 > 4000) {
+        k = 0;
+        while (k < nloc) {
+            sv[m] = gb[locnode[k]] - 33554432;
+            m = m + 1;
+            k = k + 1;
+        }
+    } else {
+        stamp = stamp + 1;
+        i = s0;
+        while (i < fend) {
+            x = tv[i];
+            if (x >= 131072) {
+                if (x < 196608) {
+                    x = gb[x - 131072];
+                    if (x >= 33554432) { lmark[fbase - x + 33554432] = stamp; }
+                }
+            }
+            i = i + 1;
+        }
+        k = 0;
+        while (k < nloc) {
+            c = gb[locnode[k]] - 33554432;
+            if (lmark[fbase - c] == stamp) {
+                sv[m] = c;
+                m = m + 1;
+            }
+            k = k + 1;
+        }
+    }
+    k = 0;
+    while (k < d0) {
+        sv[m] = tcells[k];
+        m = m + 1;
+        k = k + 1;
+    }
+    return m;
 }
 
 func push_cells(m) {
@@ -505,18 +577,16 @@ func push_cells(m) {
     emit2(T, 536870912);
     k = 0;
     while (k < m) {
-        ck2 = savedcell(k);
+        ck2 = sv[k];
         b = pc();
-        emit2(b + 24, b + 24);
-        emit2(b + 24, T);
-        emit2(b + 25, b + 25);
-        emit2(b + 25, T);
-        emit2(b + 27, b + 27);
-        emit2(b + 27, T);
-        emit2(U, U);
-        emit2(U, ck2);
+        emit2(b + 18, b + 18);
+        emit2(b + 18, T);
+        emit2(b + 19, b + 19);
+        emit2(b + 19, T);
+        emit2(b + 21, b + 21);
+        emit2(b + 21, T);
         emit2(0, 0);
-        emit2(0, U);
+        emit2(0, ck2);
         emit2(T, NEG1);
         k = k + 1;
     }
@@ -531,14 +601,12 @@ func pop_cells(m) {
     emit2(T, 536870912);
     k = 0;
     while (k < m) {
-        ck2 = savedcell(k);
+        ck2 = sv[k];
         b = pc();
         emit2(b + 10, b + 10);
         emit2(b + 10, T);
-        emit2(U, U);
-        emit2(U, 0);
         emit2(ck2, ck2);
-        emit2(ck2, U);
+        emit2(ck2, 0);
         emit2(T, NEG1);
         k = k + 1;
     }
@@ -580,7 +648,7 @@ func isgvar(c) {
 func snapshot_global(c, d0) {
     var t;
     if (isgvar(c)) {
-        if (cz[tp]) {
+        if (tch[tp]) {
             t = tmp(d0);
             mov(t, c);
             return t;
@@ -623,13 +691,13 @@ func lookup_scalar(n) {
 func lookup_array(n) {
     var x;
     x = gb[n];
-    if (x >= 2097152) { if (x < 4194304) { return x - 2097152; } }
+    if (x >= 2097152) { if (x < 4194304) { return x - 2097152; } }   // the array's ordinal
     fail();
     return 0;
 }
 
 func mul_const(res, x, c) {
-    var neg; var m; var nb; var k; var rem; var bit;
+    var neg; var m; var nb; var k; var rem; var bit; var kc; var top;
     if (c == 0) { clr(res); return 0; }
     neg = 0;
     m = c;
@@ -640,10 +708,38 @@ func mul_const(res, x, c) {
         if (p2[k] <= m) { nb = k + 1; }
         k = k + 1;
     }
-    if (m != p2[nb - 1]) { emit2(U, U); emit2(U, x); }
     if (res != x) {
-        if (m != p2[nb - 1]) { emit2(res, res); emit2(res, U); } else { mov(res, x); }
+        if (nb == 1) {
+            if (neg) { clr(res); emit2(res, x); } else { mov(res, x); }
+            return 0;
+        }
+        if (neg) {
+            kc = x;
+        } else {
+            emit2(U, U);
+            emit2(U, x);
+            kc = U;
+        }
+        clr(res);
+        rem = m - p2[nb - 1];
+        top = 2;
+        if (rem >= p2[nb - 2]) { top = 3; rem = rem - p2[nb - 2]; }
+        k = 0;
+        while (k < top) { emit2(res, kc); k = k + 1; }
+        bit = nb - 3;
+        while (bit >= 0) {
+            emit2(T, T);
+            emit2(T, res);
+            emit2(res, T);
+            if (rem >= p2[bit]) {
+                rem = rem - p2[bit];
+                emit2(res, kc);
+            }
+            bit = bit - 1;
+        }
+        return 0;
     }
+    if (m != p2[nb - 1]) { emit2(U, U); emit2(U, x); }
     rem = m - p2[nb - 1];
     bit = nb - 2;
     while (bit >= 0) {
@@ -672,7 +768,7 @@ func gen_mul(res, l, r) {
     if (isconst(l)) { mul_const(res, r, constval(l)); return 0; }
     if (mul_used == 0) {
         mul_used = 1;
-        MA = newcell(); MB = newcell(); MR = newcell(); MC = newcell(); MNA = newcell(); MRA = newcell();
+        MA = newcell(); MB = newcell(); MR = newcell(); MNA = newcell();
         LMUL = newlabel();
     }
     mov(MA, l);
@@ -683,52 +779,80 @@ func gen_mul(res, l, r) {
     return 0;
 }
 
-func small_jt(x, limit, lt) {
-    var lno;
-    lno = newlabel();
-    emit3(x, ZERO, lno);
-    diff(T1, x, lit(limit));
-    emit3(T1, ZERO, lt);
-    place(lno);
-    return 0;
+// magnitude dispatch levels of the multiply routine: 3 6 10 14 18 22 26 30
+func mlev(i) {
+    if (i == 0) { return 3; }
+    return 2 + 4 * i;
 }
 
 func emit_mul_routine() {
-    var lswap; var lsmall; var lfull; var lret; var p; var top; var q;
-    lswap = newlabel(); lsmall = newlabel(); lfull = newlabel(); lret = newlabel();
+    var i; var e; var j; var p; var b; var lneg; var ldisp; var lmin; var lret; var ld30;
+    j = 0;
+    while (j < 31) { mpl[j] = lit(p2[j]); j = j + 1; }
+    j = 0;
+    while (j < 31) { mnl[j] = lit(0 - p2[j]); j = j + 1; }
+    lneg = newlabel(); ldisp = newlabel(); lmin = newlabel(); ld30 = newlabel();
+    lret = 6;
+    j = 0;
+    while (j < 31) { lent[j] = newlabel(); j = j + 1; }
+    i = 0;
+    while (i < 8) { lsmx[mlev(i)] = newlabel(); i = i + 1; }
     place(LMUL);
     clr(MR);
-    small_jt(MB, 24, lsmall);
-    small_jt(MA, 24, lswap);
-    jmp(lfull);
-    place(lswap);
-    mov(U, MA); mov(MA, MB); mov(MB, U);
-    place(lsmall);
+    emit3(MB, ZERO, lneg);
     emit2(MNA, MNA);
     emit2(MNA, MA);
-    p = pc();
-    emit3(MB, ONE, lret);
+    place(ldisp);
+    i = 0;
+    while (i < 8) {
+        e = mlev(i);
+        emit3(MB, mpl[e], lsmx[e]);
+        emit2(MB, mnl[e]);
+        i = i + 1;
+    }
+    jmp(lent[30]);
+    i = 7;
+    while (i >= 0) {
+        e = mlev(i);
+        place(lsmx[e]);
+        emit2(MB, mnl[e]);
+        if (e == 3) {
+            p = pc();
+            emit3(MB, ONE, lret);
+            emit2(MR, MNA);
+            jmp(p);
+        } else {
+            jmp(lent[e - 1]);
+        }
+        i = i - 1;
+    }
+    place(lneg);
+    emit2(U, U);
+    emit2(U, MB);
+    mov(MB, U);
+    mov(MNA, MA);
+    emit3(MB, ZERO, lmin);
+    jmp(ldisp);
+    place(lmin);
+    emit2(MB, mnl[30]);
+    emit2(MB, mnl[30]);
     emit2(MR, MNA);
-    jmp(p);
-    place(lfull);
-    emit2(MNA, MNA);
-    emit2(MNA, MA);
-    mov(MC, lit(31));
-    top = pc();
-    emit2(T, T);
-    emit2(T, MR);
-    emit2(MR, T);
-    q = pc();
-    emit3(MB, ZERO, q + 18);
-    emit2(T, T);
-    emit2(T, MB);
-    emit2(MB, T);
-    emit3(MC, ONE, lret);
-    jmp(top);
-    emit2(MR, MNA);
-    jmp(q + 3);
-    place(lret);
-    jmpi(MRA);
+    jmp(ld30);
+    j = 30;
+    while (j >= 0) {
+        if (j == 30) { place(ld30); }
+        b = pc();
+        emit2(T, T);
+        emit2(T, MR);
+        emit2(MR, T);
+        place(lent[j]);
+        emit3(MB, mpl[j], b + 18);
+        emit2(MR, MNA);
+        jmp(b + 21);
+        emit2(MB, mnl[j]);
+        j = j - 1;
+    }
+    jmp(lret);
     return 0;
 }
 
@@ -755,18 +879,8 @@ func add_sub(res, l, r, op) {
                 emit2(T, T); emit2(T, r); emit2(res, T);
             }
         } else {
-            if (hl) {
-                if (hr == 0) {
-                    t = l; l = r; r = t;
-                    t = hl; hl = hr; hr = t;
-                    t = cl; cl = cr; cr = t;
-                }
-            }
-            if (hr) {
-                emit2(res, res); emit2(T, T); emit2(T, l); emit2(res, T); emit2(res, lit(0 - cr));
-            } else {
-                emit2(res, res); emit2(T, T); emit2(T, r); emit2(res, T); emit2(T, T); emit2(T, l); emit2(res, T);
-            }
+            emit2(T, T); emit2(T, l); emit2(T, r);
+            emit2(res, res); emit2(res, T);
         }
         return 0;
     }
@@ -800,16 +914,41 @@ func prec() {
 }
 
 func cmp_jf(op, l, r, lf) {
-    var p; var d; var t;
+    var p; var d; var t; var cr; var k; var nk;
     if (op >= 302) {
-        if (l == ZERO) {
-            if (r != ZERO) { t = l; l = r; r = t; }
+        if (isconst(l)) {
+            if (isconst(r) == 0) { t = l; l = r; r = t; }
         }
         if (r == ZERO) {
             d = l;
         } else {
-            diff(T1, l, r);
-            d = T1;
+            if (isconst(l) == 0) {
+                if (isconst(r)) {
+                    nk = lit(0 - constval(r));
+                    p = pc();
+                    emit2(l, r);
+                    emit3(l, ZERO, p + 18);
+                    emit2(T, T); emit3(T, l, p + 18);
+                    if (op == 302) {
+                        emit2(l, nk); jmp(p + 24);
+                        emit2(l, nk); jmp(lf);
+                    } else {
+                        emit2(l, nk); jmp(lf);
+                        emit2(l, nk);
+                    }
+                    return 0;
+                }
+            }
+            if (istemp(r)) {
+                if (istemp(l) == 0) { t = l; l = r; r = t; }
+            }
+            if (istemp(l)) {
+                emit2(l, r);
+                d = l;
+            } else {
+                diff(T1, l, r);
+                d = T1;
+            }
         }
         if (op == 302) { jnz(d, lf); } else { jz(d, lf); }
         return 0;
@@ -837,6 +976,32 @@ func cmp_jf(op, l, r, lf) {
             emit3(T, l, lf);
         }
         return 0;
+    }
+    if (isconst(r)) {
+        cr = constval(r);
+        if (cr > 0) {
+            if (cr < 2147483647) {
+                if (isconst(l) == 0) {
+                    k = r;
+                    if (op == 300) { cr = cr + 1; k = lit(cr); op = 60; }
+                    else { if (op == 62) { cr = cr + 1; k = lit(cr); op = 301; } }
+                    nk = lit(0 - cr);
+                    p = pc();
+                    if (op == 60) {
+                        emit3(l, ZERO, p + 15);
+                        emit3(l, k, p + 12);
+                        emit2(l, nk); jmp(lf);
+                        emit2(l, nk);
+                    } else {
+                        emit3(l, ZERO, lf);
+                        emit3(l, k, p + 12);
+                        emit2(l, nk); jmp(p + 18);
+                        emit2(l, nk); jmp(lf);
+                    }
+                    return 0;
+                }
+            }
+        }
     }
     if (op == 60) { lt_jf(l, r, lf); }
     if (op == 301) { lt_jt(l, r, lf); }
@@ -896,20 +1061,28 @@ func neg_result(e, d0) {
     return e;
 }
 
-func gen_aread(i, base, d0) {
-    var res; var wp;
+func gen_aread(i, base, size, d0) {
+    var res; var wp; var ci;
     depth = d0 + 1;
     res = result_cell(d0, 0, 0, 0);
+    if (isconst(i)) {
+        ci = constval(i);
+        if (ci >= 0) {
+            if (ci < size) {
+                emit2(res, res);
+                emit2(res, base + ci);
+                return res;
+            }
+        }
+    }
     wp = pc() + 19;
     emit2(T, T);
     emit2(T, i);
     emit2(wp, wp);
     emit2(wp, T);
     emit2(wp, lit(0 - base));
-    emit2(T, T);
-    emit2(T, 0);
     emit2(res, res);
-    emit2(res, T);
+    emit2(res, 0);
     return res;
 }
 
@@ -925,7 +1098,7 @@ func fix_arg(a, selfcall, j, fi) {
         }
     }
     if (isgvar(a)) {
-        if (cz[tp]) { need = 1; }
+        if (tch[tp]) { need = 1; }
     }
     if (need) {
         t = tmp(depth);
@@ -941,7 +1114,7 @@ func call_finish(fi, d0, base, na, selfcall, disc) {
     var m; var i; var res;
     m = 0;
     if (selfcall) {
-        m = 1 + nloc + d0;
+        m = build_saved(d0);
         push_cells(m);
     }
     i = 0;
@@ -1030,7 +1203,7 @@ func parse(p) {
                                     pend = pend + 1;
                                     want = 0;
                                     if (sc == 0) {
-                                        if (cz[tp] == 0) {
+                                        if (tch[tp] == 0) {
                                             if (na < fnp[fi]) {
                                                 want = fpc[fi * 8 + na];
                                                 wantp = pend;
@@ -1056,12 +1229,13 @@ func parse(p) {
                 } else {
                     if (isop(91)) {
                         adv();
-                        base = lookup_array(v);
+                        fi = lookup_array(v);
+                        base = tsib[fi];
                         pend = pend + 1;
                         r = parse(1);
                         pend = pend - 1;
                         eatop(93);
-                        l = gen_aread(r, base, d0);
+                        l = gen_aread(r, base, tchild[fi], d0);
                     } else {
                         l = lookup_scalar(v);
                     }
@@ -1162,45 +1336,84 @@ func assign_stmt(v) {
     return 0;
 }
 
+// is the value of an array assignment a literal or a variable?  (parsing it emits no code)
+func simple_val() {
+    var x;
+    x = tv[tp];
+    if (x < 0) { return tv[tp + 1] == 262203; }
+    if (x >= 131072) {
+        if (x < 196608) { return tv[tp + 1] == 262203; }
+    }
+    if (x == 262189) {
+        if (tv[tp + 1] < 0) { return tv[tp + 2] == 262203; }
+    }
+    return 0;
+}
+
 func aassign_stmt(v) {
-    var base; var i; var d0; var pt; var val; var p0;
-    base = lookup_array(v);
+    var base; var size; var i; var d0; var pt; var val; var p0; var ci; var inb; var src;
+    ci = lookup_array(v);
+    base = tsib[ci];
+    size = tchild[ci];
     i = parse(1);
     eatop(93);
     eatop(61);
-    d0 = depth;
-    depth = d0 + 1;
-    pt = tmp(d0);
-    if (i == pt) {
-        emit2(pt, lit(0 - base));
-    } else {
-        emit2(pt, pt);
+    inb = 0;
+    if (isconst(i)) {
+        ci = constval(i);
+        if (ci >= 0) {
+            if (ci < size) { inb = 1; }
+        }
+    }
+    if (inb) {
+        val = parse(1);
+        eatop(59);
+        emit2(base + ci, base + ci);
+        emit2(base + ci, val);
+        return 0;
+    }
+    if (simple_val()) {
+        val = parse(1);
+        eatop(59);
         emit2(T, T);
         emit2(T, i);
-        emit2(pt, T);
-        emit2(pt, lit(0 - base));
+        emit2(T, lit(base));
+        src = T;
+    } else {
+        d0 = depth;
+        depth = d0 + 1;
+        pt = tmp(d0);
+        if (i == pt) {
+            emit2(pt, lit(0 - base));
+            val = parse(1);
+            eatop(59);
+            emit2(T, T);
+            emit2(T, pt);
+            src = T;
+        } else {
+            emit2(pt, pt);
+            emit2(pt, i);
+            emit2(pt, lit(base));
+            val = parse(1);
+            eatop(59);
+            src = pt;
+        }
     }
-    val = parse(1);
-    eatop(59);
     p0 = pc();
-    emit2(T, T);
-    emit2(T, pt);
-    emit2(p0 + 30, p0 + 30);
-    emit2(p0 + 30, T);
-    emit2(p0 + 31, p0 + 31);
-    emit2(p0 + 31, T);
-    emit2(p0 + 33, p0 + 33);
-    emit2(p0 + 33, T);
-    emit2(U, U);
-    emit2(U, val);
+    emit2(p0 + 18, p0 + 18);
+    emit2(p0 + 18, src);
+    emit2(p0 + 19, p0 + 19);
+    emit2(p0 + 19, src);
+    emit2(p0 + 21, p0 + 21);
+    emit2(p0 + 21, src);
     emit2(0, 0);
-    emit2(0, U);
+    emit2(0, val);
     return 0;
 }
 
 // mode 1: parse a block "{ stmts }"; mode 0: parse one statement
 func stmt(mode) {
-    var v; var e; var lelse; var lend; var ltop; var nx;
+    var v; var e; var lelse; var lend; var ltop; var nx; var lsv;
     if (mode == 1) {
         eatop(123);
         while (isop(125) == 0) {
@@ -1211,6 +1424,7 @@ func stmt(mode) {
         return 0;
     }
     depth = 0;
+    stmt0 = tp;
     pend = 0;
     want = 0;
     stmtcall = 0;
@@ -1243,6 +1457,8 @@ func stmt(mode) {
             return 0;
         }
         if (v == 6) {
+            lsv = loop0;
+            if (loop0 < 0) { loop0 = tp; }
             adv();
             eatop(40);
             ltop = newlabel();
@@ -1253,6 +1469,7 @@ func stmt(mode) {
             stmt(1);
             jmp(ltop);
             place(lend);
+            loop0 = lsv;
             return 0;
         }
         if (v == 7) {
@@ -1264,7 +1481,7 @@ func stmt(mode) {
             want = 0;
             eatop(59);
             setto(RV, e);
-            jmpi(f_ra);
+            jmp(f_ra - 2);
             return 0;
         }
         fail();
@@ -1296,7 +1513,7 @@ func stmt(mode) {
 
 // ------------------------------------------------------------------ declarations
 func compile_func() {
-    var name; var fi; var np; var j; var more; var k;
+    var name; var fi; var np; var j; var more; var k; var x;
     adv();
     name = eatname();
     nfuncs = nfuncs + 1;
@@ -1318,8 +1535,27 @@ func compile_func() {
     curfn = fi;
     nt = 0;
     nloc = 0;
+    j = tp;
+    k = 0;
+    more = 1;
+    while (more) {
+        x = tv[j];
+        if (x == 0) {
+            more = 0;
+        } else {
+            if (x == 262267) { k = k + 1; }
+            if (x == 262269) {
+                k = k - 1;
+                if (k == 0) { more = 0; }
+            }
+            if (more) { j = j + 1; }
+        }
+    }
+    fend = j;
+    fbase = dp;
     depth = 0;
-    f_ra = newcell();
+    f_ra = pc() + 2;
+    emit3(NEG1, ZERO, 0);
     fent[fi] = pc();
     fnp[fi] = np;
     fra[fi] = f_ra;
@@ -1331,7 +1567,7 @@ func compile_func() {
     }
     stmt(1);
     clr(RV);
-    jmpi(f_ra);
+    jmp(f_ra - 2);
     k = nloc;
     while (k > 0) {
         k = k - 1;
@@ -1368,7 +1604,10 @@ func global_decl() {
         base = dp - size + 1;
         if (base < 524288) { fail(); }
         dp = base - 1;
-        gb[name] = 2097152 + base;
+        tsib[narr] = base;
+        tchild[narr] = size;
+        gb[name] = 2097152 + narr;
+        narr = narr + 1;
         return 0;
     }
     if (iskw(3)) {
@@ -1403,6 +1642,9 @@ func compile_pass() {
     nloc = 0;
     ng = 0;
     asp = 0;
+    loop0 = 0 - 1;
+    MRA = 8;
+    narr = 0;
     pend = 0;
     want = 0;
     wantp = 0;
@@ -1414,6 +1656,7 @@ func compile_pass() {
     poolv[0] = 0;
     npool = 1;
     LBOOT = newlabel();
+    emit3(NEG1, ZERO, 0);
     while (ck != 0) { global_decl(); }
     x = gb[mainnode] - 4194304;
     if (x < 0) { fail(); }

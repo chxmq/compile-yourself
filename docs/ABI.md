@@ -187,7 +187,8 @@ All patch-word addresses are absolute and known at emission time (the patched in
 | Addresses | Content |
 |---|---|
 | 0..5 | `5 3 <LBOOT>`, then `0 1 -1` (see the assembler layout above). |
-| 6..code_end-1 | Code. |
+| 6..8 | The return instruction of the multiply routine, `NEG1 ZERO 0` (its `c` word, address 8, is patched). Present in every program. |
+| 9..code_end-1 | Code. |
 | code_end.. | Literal pool, in allocation order. |
 | N-3 downwards | Zero-initialised data cells. They are not in the file (the file ends at the pool). |
 
@@ -212,51 +213,75 @@ The same pool is used for return-address constants (`set_ra`).
 2. Source order of declarations:
    - `var g;` takes one cell.
    - `array a[s];` has `base = dp - s + 1`, `dp = base - 1`, and element `i` is at `base + i`.
-   - For `func`: `RA`, then the parameters in order, then each `var` at its declaration, and temporaries at first use.
-3. Multiply-routine cells `MA, MB, MR, MC, MNA, MRA` at first use (in that order) of a non-constant `*`.
+     **Array elements are stored negated** (`mem[base+i] = -a[i]`; an untouched element is 0 either way).
+   - For `func`: the parameters in order, then each `var` at its declaration, and temporaries at first use.
+     There is no return-address data cell: see "Calls".
+3. Multiply-routine cells `MA, MB, MR, MNA` at first use (in that order) of a non-constant `*`.
 
 **Labels.** Numbered from 0 in creation order. Label 0 is `LBOOT`, created before the first declaration.
 Each `if` creates a label for else/end, and `while` creates 2 labels. The comparison value code creates 2 per comparison.
+The multiply routine creates its labels when it is emitted (see "Multiplication").
 
 **Temporaries.** `depth` counts reserved temps. Temp `i` is a function-local cell, created at first need.
 
 An expression returns an operand cell:
 - a variable cell,
 - a literal cell,
-- or temp `d0` (where `d0` is the depth at entry).
+- or temp `d0` (where `d0` is the depth at entry), or, for the last operation of a statement (see "Destination"), the destination cell.
 
 A binary operator does the following:
-1. Parse `L`. Reserve temp `d0` (`depth = d0+1`).
-2. If `L` is a global scalar, copy it into temp `d0` (a call in `R` could change it).
+1. Parse `L`. Reserve temp `d0` (`depth = d0+1`; the cell is created at that point).
+2. If `L` is a global scalar **and the rest of the statement contains a call** (`cz[tp]`, see below), copy it into temp `d0`.
 3. Parse `R`.
-4. Write the result to temp `d0`, then set `depth = d0+1`.
+4. Write the result to `result_cell` (temp `d0`, or the destination), then set `depth = d0+1`.
 
-The result cell never aliases `R`. Each statement resets `depth` to 0. The unary minus of a literal is folded into the literal.
+The result cell never aliases `R` (except for `+`, which then swaps its operands). Each statement resets `depth` to 0.
+The unary minus of a literal is folded into the literal.
+
+**`cz` (call ahead).** After lexing, `cz[i] = 1` when a call `name (` occurs in tokens `i ..` up to (not including) the next `;`, `{` or `}`.
+It is conservative (it includes calls after the operand in the same statement) and purely syntactic (`getc`/`putc` count too).
+
+**Destination.** The statements `x = e;` (destination `x`), `return e;` (destination `RV`) and each argument of a non-self call
+whose rest of the statement has no call (`cz == 0`; destination: the callee's parameter cell) set `want` and `wantp`.
+`pend` counts the operators whose right operand (or a parenthesis, index or argument) is being parsed.
+An operation is *final* when `want != 0`, `pend == wantp` and the next token is `;`, `,` or `)`.
+A final `+ - *`, array read, `getc()` or call writes its result into `want` instead of temp `d0`, with one exception:
+`l - r` with `r == want != l` uses the temp (a later `mov` finishes the statement). A value that is already in `x` needs no `mov`.
+The call of a statement `f(...);` does not copy `RV` at all (`stmtcall`).
 
 **Sequences** (`T`, `U`, `T1` are the scratch cells; every sequence clears them itself):
 
 | Name | Sequence |
 |---|---|
 | `mov x,y` | `x x; T T; T y; x T` (nothing if `x == y`). |
+| `setto x,e` | `mov x,e`, but a literal `c` is `x x; x lit(-c)` (just `x x` for 0). |
 | `jmp l` | `NEG1 ZERO l`. |
 | `jnz d,l` | `d ZERO l; T T; T d l`. |
 | `jz d,l` | `d ZERO pc+12; T T; T d pc+12; jmp l`. |
 | `diff t,x,y` (t = x-y) | `t t; T T; T x; t T; t y`. |
-| `add res,l,r`, `l == res` | `T T; T r; res T`. If `r` is ONE it is `res NEG1`; if NEG1, `res ONE`. |
-| `add`, else | `res res; T T; T r; res T; T T; T l; res T`. |
+| `add res,l,r`: `r == res`, `l != res` | swap `l` and `r`. |
+| `add`, `l == res` | `res lit(-c)` if `r` is a literal `c` (so `res NEG1` for 1, `res ONE` for -1), else `T T; T r; res T`. |
+| `add`, else | `T T; T l; T r; res res; res T` (5 steps; also correct when `res` aliases `l` or `r`). |
 | `sub`, `l == res` | `res r`. |
+| `sub`, `l` literal `c`, `r` not | `res res; res r; res lit(-c)` (the last one only if `c != 0`). |
 | `sub`, else | `res res; T T; T l; res T; res r`. |
-| `jmpi cell` | `T T; T cell; w w; w T; NEG1 ZERO 0`, where `w` is the address of the last instruction's `c` word, i.e. `p+14`. |
-| `set_ra ra,addr` | `ra ra; ra lit(-addr)`. |
+| `set_ra w,addr` | `w w; w lit(-addr)` (`w` is the c word of a return instruction). |
 
 **Compare codegen** (`cmp_jf(op,l,r,lf)`: jump to `lf` if false, fall through when true).
-Only the `r == ZERO` case is special-cased, plus `==`/`!=`, which swap if `l == ZERO`.
 
-- `==`, `!=`: use `d = l` if `r == ZERO`, else `diff T1,l,r` and `d = T1`. Then `jnz d,lf` for `==` and `jz d,lf` for `!=`.
+- `==`, `!=`: if `l` is a literal and `r` is not, they are swapped. Then:
+  - `r == ZERO`: `d = l`, then `jnz d,lf` for `==` and `jz d,lf` for `!=`.
+  - `r` a literal `c != 0` and `l` not a literal (in place, `l` is restored; `nk = lit(-c)`), at `p`:
+    `l r; l ZERO p+18; T T; T l p+18;` then for `==`: `l nk; jmp p+24; l nk; jmp lf`, for `!=`: `l nk; jmp lf; l nk`.
+  - otherwise `diff T1,l,r`, `d = T1`, then `jnz`/`jz`.
 - `r == ZERO` with `<`: `l ZERO pc+6; jmp lf`.
 - `r == ZERO` with `>=`: `l ZERO lf`.
 - `r == ZERO` with `>`: `l ZERO lf; T T; T l pc+12; jmp lf`.
 - `r == ZERO` with `<=`: `l ZERO pc+9; T T; T l lf`.
+- `r` a literal `c` with `0 < c < INT_MAX` and `l` not a literal. `<=` and `>` become `<` and `>=` with `c+1` (a new pool cell `k`;
+  otherwise `k = r`); `nk = lit(-c)`. `l` is changed and restored, at `p`:
+  - `<`: `l ZERO p+15; l k p+12; l nk; jmp lf; l nk` (4 steps when false, 1 or 3 when true).
+  - `>=`: `l ZERO lf; l k p+12; l nk; jmp p+18; l nk; jmp lf` (4 steps either way, 1 when `l < 0`).
 - Otherwise `<` is `lt_jf(l,r,lf)`, `>=` is `lt_jt(l,r,lf)`, `>` is `lt_jf(r,l,lf)`, and `<=` is `lt_jt(r,l,lf)`.
   - `lt_jf(x,y,lf)` is, at `p`: `x ZERO p+27; y ZERO lf; diff T1,x,y; T1 ZERO p+30; jmp lf; y ZERO p+6`, with the true case falling out at `p+30`.
   - `lt_jt(x,y,lt)` is: `x ZERO p+27; y ZERO p+33; diff T1,x,y; T1 ZERO lt; jmp p+33; y ZERO p+6; jmp lt`.
@@ -265,44 +290,61 @@ Only the `r == ZERO` case is special-cased, plus `==`/`!=`, which swap if `l == 
   Otherwise it does `jz value,lf`. A chained comparison materialises the first value.
 
 **Statements.**
-- `x = e` is `clr x` if `e` is ZERO, else `mov x,e`.
+- `x = e` is `setto x,e` (nothing when the final operation already wrote `x`).
 - `if (c) A else B` is `cond(Lelse); A; jmp Lend; Lelse: B; Lend:`. Without an else, `Lelse` is placed after `A`.
 - `while (c) A` is `Ltop: cond(Lend); A; jmp Ltop; Lend:`.
-- `return e` is `mov RV,e; jmpi RA`. The function end is `clr RV; jmpi RA`.
+- `return e` is `setto RV,e; jmp RET` where `RET` is the function's return instruction (see "Calls"). The function end is `clr RV; jmp RET`.
 - `putc(e)` is `T T; T e; OUT T`, with value ZERO. `getc()` is `T T; T IN; res res; res T`.
 
-**Arrays** (`base` is a compile-time absolute address; `w` is the patched word of the `T` instruction; 9 steps):
-- `a[i]` read, with `p0 = pc`: `T T; T i; w w; w T; w lit(-base); T T; T <patched b>; res res; res T`. Here `w = p0+19`.
-- `a[i] = v`: first `pt` = temp `d0` is computed after the index and before `v`.
-  - If `i` is already `pt`: `pt lit(-base)`.
-  - Otherwise: `pt pt; T T; T i; pt T; pt lit(-base)`.
-  - Then `v` is evaluated.
-  - Then, with `p0 = pc`: `T T; T pt; w1 w1; w1 T; w2 w2; w2 T; w3 w3; w3 T; U U; U v; <0 0>; <0 U>`.
-  - Here `w1 = p0+30`, `w2 = p0+31`, `w3 = p0+33` (12 steps).
+**Arrays** (`base`, `size`: compile-time; `w` is a patched word). Elements are stored negated.
+- `a[i]` read, `i` a literal `c` with `0 <= c < size`: `res res; res base+c` (2 steps).
+- `a[i]` read otherwise, with `p0 = pc`: `T T; T i; w w; w T; w lit(-base); res res; res <patched b>` (7 steps), `w = p0+19`.
+- `a[i] = v`, `i` a literal `c` in bounds: `v` is evaluated, then `base+c base+c; base+c v` (2 steps).
+- `a[i] = v` otherwise. The pointer is made first, in one of three ways, and `src` is the cell that holds `-pointer`:
+  - `v` is a literal, a variable or `-literal` (`simple_value`, no code is emitted for it): `v` is parsed first, then `T T; T i; T lit(base)`; `src = T`.
+  - else `pt` = temp `d0`. If `i` is already `pt`: `pt lit(-base)`, then `v` is evaluated, then `T T; T pt`, `src = T`.
+  - else `pt pt; pt i; pt lit(base)` (so `pt = -(i+base)`), then `v` is evaluated, `src = pt`.
+  - Then, with `p0 = pc`: `w1 w1; w1 src; w2 w2; w2 src; w3 w3; w3 src; <0 0>; <0 v>`, where `w1 = p0+18`, `w2 = p0+19`, `w3 = p0+21`.
+    (`<0 0>` clears the element, `<0 v>` subtracts `v`: the element becomes `-v`.)
 
-**Calls** `f(e1..ek)`:
-1. Each arg is evaluated left to right into an operand. Self-calls copy every non-stable arg operand into a fresh temp.
-   Non-self calls copy only global scalars into a temp. Stable means a literal or a temp.
-2. Self-calls only: push `S = [RA] + params + locals declared so far + temps 0..d0-1`.
+**Calls** `f(e1..ek)`. A function `f` starts with its **return instruction** `NEG1 ZERO 0` at address `r`; `RA_f = r+2` is its `c` word,
+and the entry (the first instruction of the body) is `r+3`. A caller patches `RA_f` with the return address, and every return jumps to `r`.
+1. Each arg is evaluated left to right into an operand. For a non-self call each argument whose `cz` is 0 is computed straight into the
+   callee's parameter cell (see "Destination"). An argument operand is copied into a fresh temp when it is a global scalar and `cz[tp] != 0`
+   after the argument, or, for a self-call, when it is the parameter cell of an earlier parameter (that `mov` would clobber it).
+2. Self-calls only: push `S = [RA_f] + live params and locals + temps 0..d0-1`.
+   - A param or local is live when its name occurs as a name token anywhere in tokens `s0 .. fend-1`, where `fend` is the closing brace
+     of the function, and `s0` is the first token of the current statement, or of the outermost enclosing `while` if there is one
+     (an operand cell may be pending, and a loop runs again). If `fend - s0 > 4000` every param and local is saved. The order is the
+     declaration order.
    - The push is `T T; T SP`.
-   - Then, per cell `c`: `w1 w1; w1 T; w2 w2; w2 T; w3 w3; w3 T; U U; U c; <0 0>; <0 U>; T NEG1`, with `w1 = b+24`, `w2 = b+25`, `w3 = b+27` and `b` the start of the cell's block.
+   - Then, per cell `c`: `w1 w1; w1 T; w2 w2; w2 T; w3 w3; w3 T; <0 0>; <0 c>; T NEG1` with `w1 = b+18`, `w2 = b+19`, `w3 = b+21`,
+     `b` the start of the cell's block (9 steps; the stored value is `-c`).
    - Finally `SP lit(m)`.
-3. `mov param_i, arg_i` for each `i`.
-4. `set_ra RA_f, pc+9` (that is the address just after the jump), then `jmp entry`.
-5. Self-calls only: pop. This is `SP lit(-m); T T; T SP`, then per cell: `w w; w T; U U; <U 0>; c c; c U; T NEG1`, with `w = b+10`, in the same cell order as the push.
-6. `depth = d0+1; mov res(temp d0), RV`.
+3. `setto param_i, arg_i` for each `i` (nothing if the argument is already in the parameter cell).
+4. `set_ra RA_f, pc+9` (the address just after the jump), then `jmp entry`.
+5. Self-calls only: pop. This is `SP lit(-m); T T; T SP`, then per cell: `w w; w T; c c; c <0>; T NEG1`, with `w = b+10`, in the same cell order as the push (5 steps per cell).
+6. For a call statement nothing more. Otherwise `depth = d0+1; mov res, RV` with `res` = `result_cell` (temp `d0` or the destination).
 
 **Multiplication.**
-- If either operand is a literal `c`, it is inlined as Horner over the bits of `m = |c|`.
+- If either operand is a literal `c`, it is inlined as Horner over the bits of `m = |c|`, `nb` = bit length.
   - `c == 0` is `clr res`.
-  - If `m` has more than one set bit, `U = -x` first (`U U; U x`).
-  - `mov res,x` if `res != x`.
-  - For `bit = nb-2 .. 0`: `T T; T res; res T` (that is, `res += res`), and if the bit is set, `res U`.
-  - If `c < 0`, `res` is then negated in place (`T T; U U; T res; U T; res res; res U`).
-- Otherwise: `mov MA,l; mov MB,r; set_ra MRA,pc+9; jmp LMUL; mov res,MR`.
-  - The routine is emitted once, after the last function.
-  - If `MB` or `MA` is in 0..23, it is the multiplier of a repeated addition (swapping if needed).
-  - Otherwise it is MSB-first shift-and-add for 32 bits.
+  - `res != x`, `nb == 1`: `mov res,x`, or for `c = -1` `res res; res x`.
+  - `res != x`, `nb >= 2`: `k = U` after `U U; U x` (`U = -x`), or for `c < 0` `k = x` (the product is built negated: no final negation).
+    Then `clr res`, `res k` repeated `m >> (nb-2)` (2 or 3) times, and for `bit = nb-3 .. 0`: `T T; T res; res T` (`res += res`), and `res k` if the bit is set.
+  - `res == x`: `U U; U x` if `m` has more than one set bit, then for `bit = nb-2 .. 0`: `res += res` and `res U` if the bit is set.
+    If `c < 0`, `res` is then negated in place (`T T; U U; T res; U T; res res; res U`).
+- Otherwise: `mov MA,l; mov MB,r; set_ra MRA,pc+9; jmp LMUL; mov res,MR`, with `MRA = 8`.
+  - The routine is emitted once, after the last function. The first code instruction (address 6, always present) is its return instruction
+    `NEG1 ZERO 0`; `MRA = 8` is its patched `c` word, and the routine ends with `jmp 6`.
+  - Pool: first `mp[j] = lit(2^j)` for `j = 0..30`, then `mn[j] = lit(-2^j)` (labels: `lneg, ldisp, lmin, ld30`, then `lent[0..30]`, then one `lsm[e]` per level).
+  - Sign fix: `MB < 0` goes to `lneg`: `MB = -MB` (`U U; U MB; mov MB,U`), `mov MNA,MA` (so `MR -= MNA` adds `-MA`), and if `MB` is still negative (INT_MIN)
+    `MB += 2^31` (twice `MB mn[30]`), `MR -= MNA` and a jump to the doubling of bit 30. Otherwise `MNA = -MA`.
+  - Dispatch on the magnitude of `MB` (0..2^31-1): for `e` in 3, 6, 10, 14, 18, 22, 26, 30: `MB mp[e] -> lsm[e]; MB mn[e]` (subtract 2^e; if
+    negative `MB < 2^e`: restore and enter the bit tests at bit `e-1`); after the last level `jmp lent[30]`. For `e = 3` the entry is a
+    repeated addition (`MB ONE ret; MR MNA; jmp`).
+  - Bit test of bit `j`, preceded (except at the entry) by `MR += MR` (3 steps): `MB mp[j] -> +18; MR MNA; jmp +21; MB mn[j]` (subtract 2^j; if negative
+    the bit is clear and it is added back; else add the multiplicand). About 5.5 steps per bit, 31 blocks from bit 30 down to bit 0.
   - Exact code: see `emit_mul_routine`.
 
 **Program end.**

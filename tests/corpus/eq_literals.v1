@@ -1,0 +1,1261 @@
+func main() {
+    var x; var t;
+    x = 0;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 1;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 2;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 4;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 5;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 6;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 99;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 100;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 101;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 2147483646;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = 2147483647;
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = (0 - 1);
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = (0 - 2);
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = (0 - 5);
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = (0 - 100);
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = (0 - 2147483647);
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+    x = (0 - 2147483647 - 1);
+    if (x == 0) { putc(49); } else { putc(48); }
+    if (0 == x) { putc(49); } else { putc(48); }
+    t = (x == 0); putc(48 + t);
+    
+    if (x != 0) { putc(49); } else { putc(48); }
+    if (0 != x) { putc(49); } else { putc(48); }
+    t = (x != 0); putc(48 + t);
+    
+    if (x == 1) { putc(49); } else { putc(48); }
+    if (1 == x) { putc(49); } else { putc(48); }
+    t = (x == 1); putc(48 + t);
+    
+    if (x != 1) { putc(49); } else { putc(48); }
+    if (1 != x) { putc(49); } else { putc(48); }
+    t = (x != 1); putc(48 + t);
+    
+    if (x == (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 1)); putc(48 + t);
+    
+    if (x != (0 - 1)) { putc(49); } else { putc(48); }
+    if ((0 - 1) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 1)); putc(48 + t);
+    
+    if (x == 2) { putc(49); } else { putc(48); }
+    if (2 == x) { putc(49); } else { putc(48); }
+    t = (x == 2); putc(48 + t);
+    
+    if (x != 2) { putc(49); } else { putc(48); }
+    if (2 != x) { putc(49); } else { putc(48); }
+    t = (x != 2); putc(48 + t);
+    
+    if (x == 5) { putc(49); } else { putc(48); }
+    if (5 == x) { putc(49); } else { putc(48); }
+    t = (x == 5); putc(48 + t);
+    
+    if (x != 5) { putc(49); } else { putc(48); }
+    if (5 != x) { putc(49); } else { putc(48); }
+    t = (x != 5); putc(48 + t);
+    
+    if (x == (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 5)); putc(48 + t);
+    
+    if (x != (0 - 5)) { putc(49); } else { putc(48); }
+    if ((0 - 5) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 5)); putc(48 + t);
+    
+    if (x == 100) { putc(49); } else { putc(48); }
+    if (100 == x) { putc(49); } else { putc(48); }
+    t = (x == 100); putc(48 + t);
+    
+    if (x != 100) { putc(49); } else { putc(48); }
+    if (100 != x) { putc(49); } else { putc(48); }
+    t = (x != 100); putc(48 + t);
+    
+    if (x == 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 == x) { putc(49); } else { putc(48); }
+    t = (x == 2147483647); putc(48 + t);
+    
+    if (x != 2147483647) { putc(49); } else { putc(48); }
+    if (2147483647 != x) { putc(49); } else { putc(48); }
+    t = (x != 2147483647); putc(48 + t);
+    
+    if (x == (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) == x) { putc(49); } else { putc(48); }
+    t = (x == (0 - 2147483647)); putc(48 + t);
+    
+    if (x != (0 - 2147483647)) { putc(49); } else { putc(48); }
+    if ((0 - 2147483647) != x) { putc(49); } else { putc(48); }
+    t = (x != (0 - 2147483647)); putc(48 + t);
+    
+    putc(10);
+}
