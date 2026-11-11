@@ -199,5 +199,11 @@ For every change: `tests/run_corpus_compiled.sh`, `scripts/difftest.sh` (compile
 and finally `make test`. New corpus tests that target the new code: `mul_signs` (300 products of edge values through the general
 routine, including INT_MIN), `mul_consts` (literal multipliers in the three code shapes), `cmp_literals` and `eq_literals` (literal compares at
 the boundaries, INT_MAX, INT_MIN), `cmp_temps` (compares of temps, including `==` and chains), `rec_live` (self-calls whose locals are live,
-dead, loop-carried or pending in an expression). Their expected outputs were computed independently (Python wrap-around arithmetic) and, where
-the interpreter was fast enough to run them, confirmed with `ref/v1interp.py`.
+dead, loop-carried or pending in an expression). Their expected outputs were computed independently (Python wrap-around arithmetic or the old compiler) and all of them were
+also confirmed with `ref/v1interp.py`.
+
+Final runs on the committed tree: `scripts/difftest.sh` on 2000 programs with fresh seeds (10000-11999): 0 failures;
+`scripts/tier3_fuzz.sh` on 600 more (seeds 20000-20599): 0 failures; 1,100 further difftest/tier3_fuzz programs during development
+(seeds 1-300, 1000-1299, 2000-2299, 3000-3299, 4000-4299, 5000-5399); `scripts/bootstrap.sh` (C1 == C2 == C3, v1c(tier3.v1) == C2);
+`make test`; `scripts/ddc.sh` (MATCH with the regenerated `tier3/tier3.selfcompiled.txt`).
+Not run: the official VM binaries (`scripts/official_check.sh`) on the new output.
