@@ -17,7 +17,7 @@ for p in tests/corpus/*.v1; do
         echo "FAIL $p"; fail=$((fail+1))
     fi
 done
-for p in tests/corpus/invalid/*.v1; do
+for p in tests/corpus/invalid/*.v1 tests/corpus/invalid_strict/*.v1; do
     n=$((n+1))
     $INTERP --check "$p" </dev/null >/dev/null 2>&1
     rc=$?
