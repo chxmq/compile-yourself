@@ -1,0 +1,1339 @@
+// tier3.v1 -- a v1 compiler written in v1.  Port of tier2/v1c.py (see tier3/NOTES.md).
+// Reads a v1 program on stdin, prints the machine program (one decimal word per line).
+// Output must be byte-identical to tier2/v1c.py.
+//
+// Structure: lex everything into the packed token array tv[]; then run the code generator
+// twice over the tokens.  Pass 1 only counts code words and records label addresses and the
+// literal pool; pass 2 emits.  Invalid input makes fail() raise a VM error (nonzero exit).
+
+// ------------------------------------------------------------------ state
+array tv[60002];        // packed tokens: number v -> -1-v ; else kind*65536+value (2 name node, 3 keyword, 4 op); 0 = EOF
+var ntk;
+var tp;                 // index of current token
+var ck;                 // kind of current token (0 eof, 1 num, 2 name, 3 kw, 4 op)
+var cv;                 // value of current token
+
+array tch[60200];       // trie: character of node
+array tsib[60200];      // next sibling
+array tchild[60200];   // first child
+var nnodes;
+// binding of each name node: 0 none; 1..2^21-1 global scalar cell; 2^21+base array;
+// 2^22+index function; 2^23+0/1 getc/putc; 2^24+code keyword; 2^25+cell local
+array gb[60200];
+var getcnode;
+var putcnode;
+var mainnode;
+
+var ZERO;
+var ONE;
+var NEG1;
+var T;
+var U;
+var T1;
+var RV;
+var dp;                 // next free data cell
+var pcc;                // code words emitted so far
+var pass;
+var cend;               // 6 + code length (known after pass 1)
+var npool;
+var nlab;
+var mul_used;
+var MA;
+var MB;
+var MR;
+var MC;
+var MNA;
+var MRA;
+var LMUL;
+var LBOOT;
+var depth;
+var nt;                 // number of temps created in this function
+var nfuncs;
+var curfn;
+var f_ra;
+var nloc;
+var ng;
+var asp;
+var ch;
+var nread;
+
+array lab[60100];
+array poolv[60100];
+array tcells[4100];
+array gvc[10100];       // cells of global scalars, strictly decreasing
+array locnode[10100];
+array locsave[10100];
+array fent[200];
+array fnp[200];
+array fra[200];
+array fpc[1600];
+array argstk[4100];
+array p10[10];
+array p2[32];
+array pnn[16];
+array junk[1];
+
+func fail() {
+    junk[0 - 2000000] = 1;
+    return 0;
+}
+
+// ------------------------------------------------------------------ lexer
+func rd() {
+    ch = getc();
+    if (ch != -1) {
+        nread = nread + 1;
+        if (nread > 60000) { fail(); }
+    }
+    return 0;
+}
+
+func isdig(c) {
+    if (c < 48) { return 0; }
+    if (c > 57) { return 0; }
+    return 1;
+}
+
+func isalp(c) {
+    if (c >= 97) { if (c <= 122) { return 1; } }
+    if (c >= 65) { if (c <= 90) { return 1; } }
+    if (c == 95) { return 1; }
+    return 0;
+}
+
+func trie_step(par, c) {
+    var n;
+    n = tchild[par];
+    while (n != 0) {
+        if (tch[n] == c) { return n; }
+        n = tsib[n];
+    }
+    n = nnodes;
+    nnodes = nnodes + 1;
+    tch[n] = c;
+    tsib[n] = tchild[par];
+    tchild[par] = n;
+    return n;
+}
+
+var kcur;
+func kwc(c) {
+    kcur = trie_step(kcur, c);
+    return 0;
+}
+// finish a pre-inserted name: bind it to value b, return its node
+func kwend(b) {
+    var n;
+    n = kcur;
+    gb[n] = b;
+    kcur = 0;
+    return n;
+}
+
+func tokpush(x) {
+    tv[ntk] = x;
+    ntk = ntk + 1;
+    return 0;
+}
+
+func issingle(c) {
+    if (c == 43) { return 1; }
+    if (c == 45) { return 1; }
+    if (c == 42) { return 1; }
+    if (c == 40) { return 1; }
+    if (c == 41) { return 1; }
+    if (c == 123) { return 1; }
+    if (c == 125) { return 1; }
+    if (c == 91) { return 1; }
+    if (c == 93) { return 1; }
+    if (c == 59) { return 1; }
+    if (c == 44) { return 1; }
+    return 0;
+}
+
+func known(c) {
+    if (c == 10) { return 1; }
+    if (c == 32) { return 1; }
+    if (c == 9) { return 1; }
+    if (c == 13) { return 1; }
+    if (c == 47) { return 1; }
+    if (c == 60) { return 1; }
+    if (c == 62) { return 1; }
+    if (c == 61) { return 1; }
+    if (c == 33) { return 1; }
+    if (isdig(c)) { return 1; }
+    if (isalp(c)) { return 1; }
+    return issingle(c);
+}
+
+func lex() {
+    var c; var v; var d; var len; var node; var x;
+    ntk = 0;
+    nread = 0;
+    rd();
+    while (ch != -1) {
+        c = ch;
+        if (known(c) == 0) { fail(); }
+        if (c == 10) { rd(); }
+        if (c == 32) { rd(); }
+        if (c == 9) { rd(); }
+        if (c == 13) { rd(); }
+        if (c == 47) {
+            rd();
+            if (ch != 47) { fail(); }
+            while (ch != 10) {
+                if (ch == -1) { ch = 10; } else { rd(); }
+            }
+        }
+        if (isdig(c)) {
+            v = 0;
+            while (isdig(ch)) {
+                d = ch - 48;
+                if (v > 214748364) { fail(); }
+                if (v == 214748364) { if (d > 7) { fail(); } }
+                v = v * 10 + d;
+                rd();
+            }
+            if (isalp(ch)) { fail(); }
+            tokpush(0 - 1 - v);
+        }
+        if (isalp(c)) {
+            node = 0;
+            len = 0;
+            while (isalp(ch) + isdig(ch)) {
+                node = trie_step(node, ch);
+                len = len + 1;
+                rd();
+            }
+            if (len > 24) { fail(); }
+            x = gb[node];
+            if (x >= 16777216) {
+                if (x < 33554432) {
+                    tokpush(196608 + x - 16777216);
+                    x = 0;
+                    node = 0;
+                }
+            }
+            if (node != 0) { tokpush(131072 + node); }
+        }
+        if (c == 60) { x = 300; }
+        if (c == 62) { x = 301; }
+        if (c == 61) { x = 302; }
+        if (c == 33) { x = 303; }
+        if (c == 60) { rd(); if (ch == 61) { rd(); tokpush(262144 + x); } else { tokpush(262144 + c); } }
+        if (c == 62) { rd(); if (ch == 61) { rd(); tokpush(262144 + x); } else { tokpush(262144 + c); } }
+        if (c == 61) { rd(); if (ch == 61) { rd(); tokpush(262144 + x); } else { tokpush(262144 + c); } }
+        if (c == 33) { rd(); if (ch != 61) { fail(); } rd(); tokpush(262144 + x); }
+        if (issingle(c)) { tokpush(262144 + c); rd(); }
+    }
+    tokpush(0);
+    return 0;
+}
+
+// ------------------------------------------------------------------ token cursor
+func setcur() {
+    var x;
+    x = tv[tp];
+    if (x < 0) { ck = 1; cv = 0 - 1 - x; return 0; }
+    ck = 4;
+    if (x >= 262144) { cv = x - 262144; return 0; }
+    ck = 3;
+    if (x >= 196608) { cv = x - 196608; return 0; }
+    ck = 2;
+    if (x >= 131072) { cv = x - 131072; return 0; }
+    ck = 0;
+    cv = 0;
+    return 0;
+}
+
+func adv() {
+    tp = tp + 1;
+    setcur();
+    return 0;
+}
+
+func isop(c) {
+    if (ck != 4) { return 0; }
+    return cv == c;
+}
+
+func iskw(c) {
+    if (ck != 3) { return 0; }
+    return cv == c;
+}
+
+func eatop(c) {
+    if (isop(c) == 0) { fail(); }
+    adv();
+    return 0;
+}
+
+func eatname() {
+    var v;
+    if (ck != 2) { fail(); }
+    v = cv;
+    adv();
+    return v;
+}
+
+// ------------------------------------------------------------------ output
+func outraw(v) {
+    var i; var d; var go;
+    if (v < 0) { putc(45); v = 0 - v; }
+    i = 9;
+    go = 1;
+    while (go) {
+        if (i == 0) { go = 0; } else {
+            if (p10[i] > v) { i = i - 1; } else { go = 0; }
+        }
+    }
+    while (i >= 0) {
+        d = 0;
+        while (v >= p10[i]) { v = v - p10[i]; d = d + 1; }
+        putc(48 + d);
+        i = i - 1;
+    }
+    putc(10);
+    return 0;
+}
+
+func outw(v) {
+    if (v >= 1073741824) {
+        v = lab[v - 1073741824];
+    } else {
+        if (v >= 536870912) { v = cend + v - 536870912; }
+    }
+    outraw(v);
+    return 0;
+}
+
+// ------------------------------------------------------------------ code buffer, cells, labels
+func pc() { return 6 + pcc; }
+
+func emit3(a, b, c) {
+    if (pass == 2) { outw(a); outw(b); outw(c); }
+    pcc = pcc + 3;
+    return 0;
+}
+
+func emit2(a, b) {
+    emit3(a, b, 6 + pcc + 3);
+    return 0;
+}
+
+func newcell() {
+    var c;
+    c = dp;
+    dp = dp - 1;
+    return c;
+}
+
+func lit(v) {
+    if (v == 0) { return 3; }
+    if (v == 1) { return 4; }
+    if (v == -1) { return 5; }
+    poolv[npool] = v;
+    npool = npool + 1;
+    return 536870912 + npool - 1;
+}
+
+func newlabel() {
+    if (pass == 1) { lab[nlab] = -1; }
+    nlab = nlab + 1;
+    return 1073741824 + nlab - 1;
+}
+
+func place(l) {
+    lab[l - 1073741824] = 6 + pcc;
+    return 0;
+}
+
+func tmp(i) {
+    var c;
+    while (nt <= i) {
+        c = newcell();
+        tcells[nt] = c;
+        nt = nt + 1;
+    }
+    return tcells[i];
+}
+
+// ------------------------------------------------------------------ instruction sequences
+func jmp(l) {
+    emit3(NEG1, ZERO, l);
+    return 0;
+}
+
+func clr(x) {
+    emit2(x, x);
+    return 0;
+}
+
+func mov(x, y) {
+    if (x == y) { return 0; }
+    emit2(x, x);
+    emit2(T, T);
+    emit2(T, y);
+    emit2(x, T);
+    return 0;
+}
+
+func jnz(d, l) {
+    emit3(d, ZERO, l);
+    emit2(T, T);
+    emit3(T, d, l);
+    return 0;
+}
+
+func jz(d, l) {
+    var p;
+    p = pc();
+    emit3(d, ZERO, p + 12);
+    emit2(T, T);
+    emit3(T, d, p + 12);
+    jmp(l);
+    return 0;
+}
+
+func diff(t, x, y) {
+    emit2(t, t);
+    emit2(T, T);
+    emit2(T, x);
+    emit2(t, T);
+    emit2(t, y);
+    return 0;
+}
+
+func lt_jf(x, y, lf) {
+    var p;
+    p = pc();
+    emit3(x, ZERO, p + 27);
+    emit3(y, ZERO, lf);
+    diff(T1, x, y);
+    emit3(T1, ZERO, p + 30);
+    jmp(lf);
+    emit3(y, ZERO, p + 6);
+    return 0;
+}
+
+func lt_jt(x, y, lt) {
+    var p;
+    p = pc();
+    emit3(x, ZERO, p + 27);
+    emit3(y, ZERO, p + 33);
+    diff(T1, x, y);
+    emit3(T1, ZERO, lt);
+    jmp(p + 33);
+    emit3(y, ZERO, p + 6);
+    jmp(lt);
+    return 0;
+}
+
+func jmpi(cell) {
+    var w;
+    w = pc() + 14;
+    emit2(T, T);
+    emit2(T, cell);
+    emit2(w, w);
+    emit2(w, T);
+    emit3(NEG1, ZERO, 0);
+    return 0;
+}
+
+func set_ra(ra, retaddr) {
+    emit2(ra, ra);
+    emit2(ra, lit(0 - retaddr));
+    return 0;
+}
+
+// k-th saved cell of a self call: RA, then params+locals declared so far, then temps 0..d0-1
+func savedcell(k) {
+    if (k == 0) { return f_ra; }
+    if (k <= nloc) { return gb[locnode[k - 1]] - 33554432; }
+    return tcells[k - 1 - nloc];
+}
+
+func push_cells(m) {
+    var k; var b; var ck2;
+    emit2(T, T);
+    emit2(T, 536870912);
+    k = 0;
+    while (k < m) {
+        ck2 = savedcell(k);
+        b = pc();
+        emit2(b + 24, b + 24);
+        emit2(b + 24, T);
+        emit2(b + 25, b + 25);
+        emit2(b + 25, T);
+        emit2(b + 27, b + 27);
+        emit2(b + 27, T);
+        emit2(U, U);
+        emit2(U, ck2);
+        emit2(0, 0);
+        emit2(0, U);
+        emit2(T, NEG1);
+        k = k + 1;
+    }
+    emit2(536870912, lit(m));
+    return 0;
+}
+
+func pop_cells(m) {
+    var k; var b; var ck2;
+    emit2(536870912, lit(0 - m));
+    emit2(T, T);
+    emit2(T, 536870912);
+    k = 0;
+    while (k < m) {
+        ck2 = savedcell(k);
+        b = pc();
+        emit2(b + 10, b + 10);
+        emit2(b + 10, T);
+        emit2(U, U);
+        emit2(U, 0);
+        emit2(ck2, ck2);
+        emit2(ck2, U);
+        emit2(T, NEG1);
+        k = k + 1;
+    }
+    return 0;
+}
+
+// ------------------------------------------------------------------ expressions: helpers
+func is_stable(c) {
+    var i;
+    if (c < 6) { return 1; }
+    if (c >= 536870912) { return 1; }
+    i = 0;
+    while (i < nt) {
+        if (tcells[i] == c) { return 1; }
+        i = i + 1;
+    }
+    return 0;
+}
+
+// is c the cell of a global scalar?  (gvc is strictly decreasing: binary search)
+func isgvar(c) {
+    var pos; var k; var s;
+    pos = 0 - 1;
+    k = 14;
+    while (k >= 0) {
+        s = pos + p2[k];
+        if (s < ng) {
+            if (gvc[s] > c) { pos = s; }
+        }
+        k = k - 1;
+    }
+    pos = pos + 1;
+    if (pos < ng) {
+        if (gvc[pos] == c) { return 1; }
+    }
+    return 0;
+}
+
+func snapshot_global(c, d0) {
+    var t;
+    if (isgvar(c)) {
+        t = tmp(d0);
+        mov(t, c);
+        return t;
+    }
+    return c;
+}
+
+func lookup_scalar(n) {
+    var x;
+    x = gb[n];
+    if (x >= 33554432) { return x - 33554432; }
+    if (x > 0) { if (x < 2097152) { return x; } }
+    fail();
+    return 0;
+}
+
+func lookup_array(n) {
+    var x;
+    x = gb[n];
+    if (x >= 2097152) { if (x < 4194304) { return x - 2097152; } }
+    fail();
+    return 0;
+}
+
+func isconst(c) {
+    if (c >= 536870912) { return 1; }
+    if (c == 3) { return 1; }
+    if (c == 4) { return 1; }
+    if (c == 5) { return 1; }
+    return 0;
+}
+
+func constval(c) {
+    if (c == 3) { return 0; }
+    if (c == 4) { return 1; }
+    if (c == 5) { return -1; }
+    return poolv[c - 536870912];
+}
+
+func mul_const(res, x, c) {
+    var neg; var m; var nb; var k; var rem; var bit;
+    if (c == 0) { clr(res); return 0; }
+    neg = 0;
+    m = c;
+    if (c < 0) { neg = 1; m = 0 - c; }
+    nb = 0;
+    k = 0;
+    while (k < 31) {
+        if (p2[k] <= m) { nb = k + 1; }
+        k = k + 1;
+    }
+    if (m != p2[nb - 1]) { emit2(U, U); emit2(U, x); }
+    if (res != x) { mov(res, x); }
+    rem = m - p2[nb - 1];
+    bit = nb - 2;
+    while (bit >= 0) {
+        emit2(T, T);
+        emit2(T, res);
+        emit2(res, T);
+        if (rem >= p2[bit]) {
+            rem = rem - p2[bit];
+            emit2(res, U);
+        }
+        bit = bit - 1;
+    }
+    if (neg) {
+        emit2(T, T);
+        emit2(U, U);
+        emit2(T, res);
+        emit2(U, T);
+        emit2(res, res);
+        emit2(res, U);
+    }
+    return 0;
+}
+
+func gen_mul(res, l, r) {
+    if (isconst(r)) { mul_const(res, l, constval(r)); return 0; }
+    if (isconst(l)) { mul_const(res, r, constval(l)); return 0; }
+    if (mul_used == 0) {
+        mul_used = 1;
+        MA = newcell(); MB = newcell(); MR = newcell(); MC = newcell(); MNA = newcell(); MRA = newcell();
+        LMUL = newlabel();
+    }
+    mov(MA, l);
+    mov(MB, r);
+    set_ra(MRA, pc() + 9);
+    jmp(LMUL);
+    mov(res, MR);
+    return 0;
+}
+
+func small_jt(x, limit, lt) {
+    var lno;
+    lno = newlabel();
+    emit3(x, ZERO, lno);
+    diff(T1, x, lit(limit));
+    emit3(T1, ZERO, lt);
+    place(lno);
+    return 0;
+}
+
+func emit_mul_routine() {
+    var lswap; var lsmall; var lfull; var lret; var p; var top; var q;
+    lswap = newlabel(); lsmall = newlabel(); lfull = newlabel(); lret = newlabel();
+    place(LMUL);
+    clr(MR);
+    small_jt(MB, 24, lsmall);
+    small_jt(MA, 24, lswap);
+    jmp(lfull);
+    place(lswap);
+    mov(U, MA); mov(MA, MB); mov(MB, U);
+    place(lsmall);
+    emit2(MNA, MNA);
+    emit2(MNA, MA);
+    p = pc();
+    emit3(MB, ONE, lret);
+    emit2(MR, MNA);
+    jmp(p);
+    place(lfull);
+    emit2(MNA, MNA);
+    emit2(MNA, MA);
+    mov(MC, lit(31));
+    top = pc();
+    emit2(T, T);
+    emit2(T, MR);
+    emit2(MR, T);
+    q = pc();
+    emit3(MB, ZERO, q + 18);
+    emit2(T, T);
+    emit2(T, MB);
+    emit2(MB, T);
+    emit3(MC, ONE, lret);
+    jmp(top);
+    emit2(MR, MNA);
+    jmp(q + 3);
+    place(lret);
+    jmpi(MRA);
+    return 0;
+}
+
+func add_sub(res, l, r, op) {
+    if (op == 43) {
+        if (l == res) {
+            if (r == ONE) {
+                emit2(res, NEG1);
+            } else {
+                if (r == NEG1) {
+                    emit2(res, ONE);
+                } else {
+                    emit2(T, T); emit2(T, r); emit2(res, T);
+                }
+            }
+        } else {
+            emit2(res, res); emit2(T, T); emit2(T, r); emit2(res, T); emit2(T, T); emit2(T, l); emit2(res, T);
+        }
+    } else {
+        if (l == res) {
+            emit2(res, r);
+        } else {
+            emit2(res, res); emit2(T, T); emit2(T, l); emit2(res, T); emit2(res, r);
+        }
+    }
+    return 0;
+}
+
+// operator precedence of the current token: 3 '*', 2 '+' '-', 1 comparisons, 0 none
+func prec() {
+    var v;
+    if (ck != 4) { return 0; }
+    v = cv;
+    if (v == 42) { return 3; }
+    if (v == 43) { return 2; }
+    if (v == 45) { return 2; }
+    if (v == 60) { return 1; }
+    if (v == 62) { return 1; }
+    if (v >= 300) { if (v <= 303) { return 1; } }
+    return 0;
+}
+
+func cmp_jf(op, l, r, lf) {
+    var p; var d; var t;
+    if (op >= 302) {
+        if (l == ZERO) {
+            if (r != ZERO) { t = l; l = r; r = t; }
+        }
+        if (r == ZERO) {
+            d = l;
+        } else {
+            diff(T1, l, r);
+            d = T1;
+        }
+        if (op == 302) { jnz(d, lf); } else { jz(d, lf); }
+        return 0;
+    }
+    if (r == ZERO) {
+        if (op == 60) {
+            p = pc();
+            emit3(l, ZERO, p + 6);
+            jmp(lf);
+        }
+        if (op == 301) {
+            emit3(l, ZERO, lf);
+        }
+        if (op == 62) {
+            p = pc();
+            emit3(l, ZERO, lf);
+            emit2(T, T);
+            emit3(T, l, p + 12);
+            jmp(lf);
+        }
+        if (op == 300) {
+            p = pc();
+            emit3(l, ZERO, p + 9);
+            emit2(T, T);
+            emit3(T, l, lf);
+        }
+        return 0;
+    }
+    if (op == 60) { lt_jf(l, r, lf); }
+    if (op == 301) { lt_jt(l, r, lf); }
+    if (op == 62) { lt_jf(r, l, lf); }
+    if (op == 300) { lt_jt(r, l, lf); }
+    return 0;
+}
+
+func cmp_value(op, l, r, res) {
+    var lf; var le;
+    lf = newlabel();
+    le = newlabel();
+    cmp_jf(op, l, r, lf);
+    clr(res);
+    emit2(res, NEG1);
+    jmp(le);
+    place(lf);
+    clr(res);
+    place(le);
+    return 0;
+}
+
+func gen_getc(d0) {
+    var res;
+    depth = d0 + 1;
+    res = tmp(d0);
+    emit2(T, T);
+    emit2(T, 1048574);
+    emit2(res, res);
+    emit2(res, T);
+    return res;
+}
+
+func gen_putc(v) {
+    emit2(T, T);
+    emit2(T, v);
+    emit2(1048575, T);
+    return 0;
+}
+
+// unary minus of a non-literal operand e; d0 is the depth before e was parsed
+func neg_result(e, d0) {
+    var res;
+    if (depth == d0) {
+        depth = d0 + 1;
+        res = tmp(d0);
+        emit2(res, res);
+        emit2(res, e);
+        return res;
+    }
+    emit2(T, T);
+    emit2(U, U);
+    emit2(T, e);
+    emit2(U, T);
+    emit2(e, e);
+    emit2(e, U);
+    return e;
+}
+
+func gen_aread(i, base, d0) {
+    var res; var wp;
+    depth = d0 + 1;
+    res = tmp(d0);
+    wp = pc() + 19;
+    emit2(T, T);
+    emit2(T, i);
+    emit2(wp, wp);
+    emit2(wp, T);
+    emit2(wp, lit(0 - base));
+    emit2(T, T);
+    emit2(T, 0);
+    emit2(res, res);
+    emit2(res, T);
+    return res;
+}
+
+func fix_arg(a, selfcall) {
+    var t;
+    if (selfcall) {
+        if (is_stable(a) == 0) {
+            t = tmp(depth);
+            depth = depth + 1;
+            mov(t, a);
+            return t;
+        }
+        return a;
+    }
+    if (isgvar(a)) {
+        t = tmp(depth);
+        depth = depth + 1;
+        mov(t, a);
+        return t;
+    }
+    return a;
+}
+
+// emit the call of function fi whose na argument operands are in argstk[base..]
+func call_finish(fi, d0, base, na, selfcall) {
+    var m; var i; var res;
+    m = 0;
+    if (selfcall) {
+        m = 1 + nloc + d0;
+        push_cells(m);
+    }
+    i = 0;
+    while (i < na) {
+        mov(fpc[fi * 8 + i], argstk[base + i]);
+        i = i + 1;
+    }
+    set_ra(fra[fi], pc() + 9);
+    jmp(fent[fi]);
+    if (selfcall) { pop_cells(m); }
+    depth = d0 + 1;
+    res = tmp(d0);
+    mov(res, RV);
+    asp = base;
+    return res;
+}
+
+// expression parser by precedence climbing: parse(p) parses operators of precedence >= p
+// (1 comparisons, 2 + -, 3 *); parse(4) is a unary operand.
+func parse(p) {
+    var d0; var l; var r; var res; var op; var pr; var v; var fi; var base; var na; var more; var sc;
+    d0 = depth;
+    v = cv;
+    l = 0;
+    if (ck == 1) {
+        adv();
+        l = lit(v);
+    } else {
+        if (isop(40)) {
+            adv();
+            l = parse(1);
+            eatop(41);
+        } else {
+            if (isop(45)) {
+                adv();
+                if (ck == 1) {
+                    l = lit(0 - cv);
+                    adv();
+                } else {
+                    r = parse(4);
+                    l = neg_result(r, d0);
+                }
+            } else {
+                if (ck != 2) { fail(); }
+                adv();
+                if (isop(40)) {
+                    if (v == getcnode) {
+                        adv();
+                        eatop(41);
+                        l = gen_getc(d0);
+                    } else {
+                        if (v == putcnode) {
+                            adv();
+                            l = parse(1);
+                            eatop(41);
+                            gen_putc(l);
+                            depth = d0;
+                            l = ZERO;
+                        } else {
+                            fi = gb[v] - 4194304;
+                            if (fi < 0) { fail(); }
+                            if (fi >= 200) { fail(); }
+                            sc = 0;
+                            if (fi == curfn) { sc = 1; }
+                            adv();
+                            na = 0;
+                            base = asp;
+                            if (isop(41) == 0) {
+                                more = 1;
+                                while (more) {
+                                    r = parse(1);
+                                    r = fix_arg(r, sc);
+                                    argstk[asp] = r;
+                                    asp = asp + 1;
+                                    na = na + 1;
+                                    if (isop(44)) { adv(); } else { more = 0; }
+                                }
+                            }
+                            eatop(41);
+                            if (na != fnp[fi]) { fail(); }
+                            l = call_finish(fi, d0, base, na, sc);
+                        }
+                    }
+                } else {
+                    if (isop(91)) {
+                        adv();
+                        base = lookup_array(v);
+                        r = parse(1);
+                        eatop(93);
+                        l = gen_aread(r, base, d0);
+                    } else {
+                        l = lookup_scalar(v);
+                    }
+                }
+            }
+        }
+    }
+    pr = prec();
+    while (pr >= p) {
+        op = cv;
+        adv();
+        depth = d0 + 1;
+        tmp(d0);
+        l = snapshot_global(l, d0);
+        r = parse(pr + 1);
+        res = tmp(d0);
+        if (pr == 3) { gen_mul(res, l, r); }
+        if (pr == 2) { add_sub(res, l, r, op); }
+        if (pr == 1) { cmp_value(op, l, r, res); }
+        depth = d0 + 1;
+        l = res;
+        pr = prec();
+    }
+    return l;
+}
+
+func cmp_tail(l, d0) {
+    var op; var r; var res;
+    while (prec() == 1) {
+        op = cv;
+        adv();
+        depth = d0 + 1;
+        tmp(d0);
+        l = snapshot_global(l, d0);
+        r = parse(2);
+        res = tmp(d0);
+        cmp_value(op, l, r, res);
+        depth = d0 + 1;
+        l = res;
+    }
+    return l;
+}
+
+// parse an expression; jump to lf if it is false (zero), fall through otherwise
+func cond(lf) {
+    var d0; var l; var op; var r; var res;
+    d0 = depth;
+    l = parse(2);
+    if (prec() != 1) {
+        jz(l, lf);
+        depth = d0;
+        return 0;
+    }
+    op = cv;
+    adv();
+    depth = d0 + 1;
+    tmp(d0);
+    l = snapshot_global(l, d0);
+    r = parse(2);
+    if (prec() == 1) {
+        res = tmp(d0);
+        cmp_value(op, l, r, res);
+        depth = d0 + 1;
+        l = cmp_tail(res, d0);
+        jz(l, lf);
+    } else {
+        cmp_jf(op, l, r, lf);
+    }
+    depth = d0;
+    return 0;
+}
+
+// ------------------------------------------------------------------ statements
+func declare_local(n) {
+    var c; var x;
+    x = gb[n];
+    if (x >= 33554432) { fail(); }
+    if (x >= 4194304) { if (x < 8388608) { fail(); } }
+    c = newcell();
+    locnode[nloc] = n;
+    locsave[nloc] = x;
+    nloc = nloc + 1;
+    gb[n] = 33554432 + c;
+    return c;
+}
+
+func assign_stmt(v) {
+    var x; var e;
+    x = lookup_scalar(v);
+    e = parse(1);
+    eatop(59);
+    if (e == ZERO) { clr(x); } else { mov(x, e); }
+    return 0;
+}
+
+func aassign_stmt(v) {
+    var base; var i; var d0; var pt; var val; var p0;
+    base = lookup_array(v);
+    i = parse(1);
+    eatop(93);
+    eatop(61);
+    d0 = depth;
+    depth = d0 + 1;
+    pt = tmp(d0);
+    if (i == pt) {
+        emit2(pt, lit(0 - base));
+    } else {
+        emit2(pt, pt);
+        emit2(T, T);
+        emit2(T, i);
+        emit2(pt, T);
+        emit2(pt, lit(0 - base));
+    }
+    val = parse(1);
+    eatop(59);
+    p0 = pc();
+    emit2(T, T);
+    emit2(T, pt);
+    emit2(p0 + 30, p0 + 30);
+    emit2(p0 + 30, T);
+    emit2(p0 + 31, p0 + 31);
+    emit2(p0 + 31, T);
+    emit2(p0 + 33, p0 + 33);
+    emit2(p0 + 33, T);
+    emit2(U, U);
+    emit2(U, val);
+    emit2(0, 0);
+    emit2(0, U);
+    return 0;
+}
+
+// mode 1: parse a block "{ stmts }"; mode 0: parse one statement
+func stmt(mode) {
+    var v; var e; var lelse; var lend; var ltop; var nx;
+    if (mode == 1) {
+        eatop(123);
+        while (isop(125) == 0) {
+            if (ck == 0) { fail(); }
+            stmt(0);
+        }
+        eatop(125);
+        return 0;
+    }
+    depth = 0;
+    v = cv;
+    if (ck == 3) {
+        if (v == 1) {
+            adv();
+            declare_local(eatname());
+            eatop(59);
+            return 0;
+        }
+        if (v == 4) {
+            adv();
+            eatop(40);
+            lelse = newlabel();
+            cond(lelse);
+            eatop(41);
+            stmt(1);
+            if (iskw(5)) {
+                adv();
+                if (iskw(4)) { fail(); }
+                lend = newlabel();
+                jmp(lend);
+                place(lelse);
+                stmt(1);
+                place(lend);
+            } else {
+                place(lelse);
+            }
+            return 0;
+        }
+        if (v == 6) {
+            adv();
+            eatop(40);
+            ltop = newlabel();
+            lend = newlabel();
+            place(ltop);
+            cond(lend);
+            eatop(41);
+            stmt(1);
+            jmp(ltop);
+            place(lend);
+            return 0;
+        }
+        if (v == 7) {
+            adv();
+            if (isop(59)) { fail(); }
+            e = parse(1);
+            eatop(59);
+            mov(RV, e);
+            jmpi(f_ra);
+            return 0;
+        }
+        fail();
+        return 0;
+    }
+    if (ck != 2) { fail(); }
+    nx = tv[tp + 1];
+    if (nx == 262205) {
+        adv();
+        adv();
+        assign_stmt(v);
+        return 0;
+    }
+    if (nx == 262235) {
+        adv();
+        adv();
+        aassign_stmt(v);
+        return 0;
+    }
+    if (nx == 262184) {
+        parse(4);
+        eatop(59);
+        return 0;
+    }
+    fail();
+    return 0;
+}
+
+// ------------------------------------------------------------------ declarations
+func compile_func() {
+    var name; var fi; var np; var j; var more; var k;
+    adv();
+    name = eatname();
+    nfuncs = nfuncs + 1;
+    if (nfuncs > 200) { fail(); }
+    if (gb[name] != 0) { fail(); }
+    eatop(40);
+    np = 0;
+    if (isop(41) == 0) {
+        more = 1;
+        while (more) {
+            pnn[np] = eatname();
+            np = np + 1;
+            if (np > 8) { fail(); }
+            if (isop(44)) { adv(); } else { more = 0; }
+        }
+    }
+    eatop(41);
+    fi = nfuncs - 1;
+    curfn = fi;
+    nt = 0;
+    nloc = 0;
+    depth = 0;
+    f_ra = newcell();
+    fent[fi] = pc();
+    fnp[fi] = np;
+    fra[fi] = f_ra;
+    gb[name] = 4194304 + fi;
+    j = 0;
+    while (j < np) {
+        fpc[fi * 8 + j] = declare_local(pnn[j]);
+        j = j + 1;
+    }
+    stmt(1);
+    clr(RV);
+    jmpi(f_ra);
+    k = nloc;
+    while (k > 0) {
+        k = k - 1;
+        gb[locnode[k]] = locsave[k];
+    }
+    nloc = 0;
+    return 0;
+}
+
+func global_decl() {
+    var name; var size; var base; var c;
+    if (iskw(1)) {
+        adv();
+        name = eatname();
+        eatop(59);
+        if (gb[name] != 0) { fail(); }
+        c = newcell();
+        gb[name] = c;
+        gvc[ng] = c;
+        ng = ng + 1;
+        return 0;
+    }
+    if (iskw(2)) {
+        adv();
+        name = eatname();
+        eatop(91);
+        if (ck != 1) { fail(); }
+        size = cv;
+        if (size <= 0) { fail(); }
+        adv();
+        eatop(93);
+        eatop(59);
+        if (gb[name] != 0) { fail(); }
+        base = dp - size + 1;
+        if (base < 524288) { fail(); }
+        dp = base - 1;
+        gb[name] = 2097152 + base;
+        return 0;
+    }
+    if (iskw(3)) {
+        compile_func();
+        return 0;
+    }
+    fail();
+    return 0;
+}
+
+// ------------------------------------------------------------------ driver
+func compile_pass() {
+    var n; var x; var fm; var rac;
+    // reset everything the first pass left behind
+    n = 0;
+    while (n < nnodes) {
+        x = gb[n];
+        if (x > 0) { if (x < 8388608) { gb[n] = 0; } }
+        n = n + 1;
+    }
+    tp = 0;
+    setcur();
+    pcc = 0;
+    dp = 1048573;
+    npool = 0;
+    nlab = 0;
+    mul_used = 0;
+    nfuncs = 0;
+    curfn = 0 - 1;
+    depth = 0;
+    nt = 0;
+    nloc = 0;
+    ng = 0;
+    asp = 0;
+    T = newcell();
+    U = newcell();
+    T1 = newcell();
+    RV = newcell();
+    poolv[0] = 0;
+    npool = 1;
+    LBOOT = newlabel();
+    while (ck != 0) { global_decl(); }
+    x = gb[mainnode] - 4194304;
+    if (x < 0) { fail(); }
+    if (x >= 200) { fail(); }
+    fm = x;
+    if (fnp[fm] != 0) { fail(); }
+    if (mul_used) { emit_mul_routine(); }
+    place(LBOOT);
+    set_ra(fra[fm], pc() + 9);
+    jmp(fent[fm]);
+    emit3(NEG1, ZERO, 0 - 1);
+    poolv[0] = dp;
+    return 0;
+}
+
+func main() {
+    var i; var x;
+    ZERO = 3;
+    ONE = 4;
+    NEG1 = 5;
+    p10[0] = 1;
+    i = 1;
+    while (i < 10) { p10[i] = p10[i - 1] * 10; i = i + 1; }
+    p2[0] = 1;
+    i = 1;
+    while (i < 31) { p2[i] = p2[i - 1] * 2; i = i + 1; }
+    nnodes = 1;
+    kcur = 0;
+    kwc(118); kwc(97); kwc(114); kwend(16777217);
+    kwc(97); kwc(114); kwc(114); kwc(97); kwc(121); kwend(16777218);
+    kwc(102); kwc(117); kwc(110); kwc(99); kwend(16777219);
+    kwc(105); kwc(102); kwend(16777220);
+    kwc(101); kwc(108); kwc(115); kwc(101); kwend(16777221);
+    kwc(119); kwc(104); kwc(105); kwc(108); kwc(101); kwend(16777222);
+    kwc(114); kwc(101); kwc(116); kwc(117); kwc(114); kwc(110); kwend(16777223);
+    kwc(103); kwc(101); kwc(116); kwc(99); getcnode = kwend(8388608);
+    kwc(112); kwc(117); kwc(116); kwc(99); putcnode = kwend(8388609);
+    kwc(109); kwc(97); kwc(105); kwc(110); mainnode = kwend(0);
+    lex();
+    pass = 1;
+    compile_pass();
+    cend = 6 + pcc;
+    pass = 2;
+    outraw(5);
+    outraw(3);
+    outraw(lab[0]);
+    outraw(0);
+    outraw(1);
+    outraw(0 - 1);
+    compile_pass();
+    i = 0;
+    while (i < npool) {
+        outraw(poolv[i]);
+        i = i + 1;
+    }
+    return 0;
+}
