@@ -1,0 +1,6 @@
+.ref/
+*.o
+__pycache__/
+/vm/sqvm
+build/
+*.trace
