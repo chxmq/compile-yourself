@@ -187,7 +187,7 @@ all 200 outputs identical between the old and the new compiler (and both match t
 ## 4. Tier 3 (the compiler written in v1)
 
 `tier3/tier3.v1` was updated with every change above, and still emits byte-identical output (`scripts/tier3_diff.sh`, `scripts/tier3_fuzz.sh`,
-`scripts/bootstrap.sh`). Its own compiled form is smaller and faster: the self-compile (C1 on `tier3.v1`) went from 107M to about 60M steps.
+`scripts/bootstrap.sh`). Its own compiled form is smaller and faster: the self-compile (C1 on `tier3.v1`) went from 107M to about 54M steps.
 The source grew from 30.3 KB to about 41 KB (limit 60,000 bytes), 75 functions (limit 200). Data memory: the three trie arrays (`tch`,
 `tsib`, `tchild`) are dead after lexing, so they are reused for the `cz` flags and the array table (see `tier3/NOTES.md`);
 without that the data would no longer fit below address 2^19 (v1c's "array too large" rule).
