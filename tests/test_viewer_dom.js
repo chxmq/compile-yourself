@@ -10,18 +10,19 @@ const document = { getElementById: mk };
 mk("fade").value = "200"; mk("speed").value = "20";
 const win = { addEventListener() {} };
 new Function("document", "window", "requestAnimationFrame", "module", src)(document, win, () => {}, undefined);
+const FULL = parseInt(fs.readFileSync(path.join(root, "build/demo/demo.steps"), "utf8"), 10);
 const tr = fs.readFileSync(path.join(root, "build/demo/demo.trace")), pr = fs.readFileSync(path.join(root, "build/demo/demo.txt"));
 const ab = b => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
 (async () => {
   await els.pfile.onchange({ target: { files: [{ text: async () => pr.toString() }] } });
   await els.tfile.onchange({ target: { files: [{ arrayBuffer: async () => ab(tr) }] } });
   assert.strictEqual(els.msg.textContent, "");
-  assert.strictEqual(els.scrub.max, 557);
+  assert.strictEqual(els.scrub.max, FULL);
   els.scrub.value = 300; // scrub via the handler registered on the slider
   els.nextw.onclick(); const s1 = els.status.textContent;
-  assert(/step \d+ \/ 557/.test(s1), s1);
+  assert(new RegExp("step \\d+ / " + FULL).test(s1), s1);
   els.fwd.onclick(); els.back.onclick(); els.prevw.onclick();
-  const s2 = els.status.textContent; assert(/step \d+ \/ 557/.test(s2));
+  const s2 = els.status.textContent; assert(new RegExp("step \\d+ / " + FULL).test(s2));
   assert(els.dis.innerHTML.includes("class=\"cur\""), "current instruction row shown");
   els.nextw.onclick(); els.nextw.onclick();
   assert(els.dis.innerHTML.length > 100 && els.log.innerHTML.includes(":="), "log shows a write");

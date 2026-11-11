@@ -13,7 +13,8 @@ const ab = tr.buffer.slice(tr.byteOffset, tr.byteOffset + tr.byteLength);
 const T = parseTrace(ab);
 const prog = parseProgram(fs.readFileSync(path.join(root, "build/demo/demo.txt"), "utf8"));
 assert.strictEqual(T.codeWords, prog.length, "code words = program length");
-assert.strictEqual(T.steps, 557, "step count matches VM_STATS");
+const FULL = parseInt(fs.readFileSync(path.join(root, "build/demo/demo.steps"), "utf8"), 10);
+assert.strictEqual(T.steps, FULL, "step count matches VM_STATS");
 assert.strictEqual(T.addr[0], 0, "first instruction at pc 0");
 assert.strictEqual(T.addr[T.kind.findIndex((k, i) => k === 0 && i > 0)], prog[2], "boot jump goes to entry");
 // independent replay: apply writes onto the program and re-run the machine; must reproduce the same pc sequence

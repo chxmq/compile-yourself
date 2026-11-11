@@ -37,7 +37,12 @@ K_EOF, K_NUM, K_NAME, K_KW, K_OP = 0, 1, 2, 3, 4
 tkind = []
 tval = []
 tline = []
+cz = []
 tp = 0
+pend = 0         # operators whose right operand is being parsed (the value of the current operand is not final)
+want = 0         # cell that should receive the value of the expression being parsed (0: none)
+wantp = 0        # value of pend at which `want` applies
+stmtcall = False # the call being parsed is a whole statement (its result is unused)
 
 
 def lex(src):
@@ -84,6 +89,15 @@ def lex(src):
         else:
             raise CompileError("line %d: unexpected character %r" % (line, c))
     tkind.append(K_EOF); tval.append(""); tline.append(line)
+    # cz[i] = 1 when a call "name (" occurs in tokens i .. (next ; { or }) : such an expression can change globals
+    flag = 0
+    for i in range(len(tkind) - 1, -1, -1):
+        if tkind[i] == K_OP and tval[i] in (";", "{", "}"):
+            flag = 0
+        elif tkind[i] == K_OP and tval[i] == "(" and i > 0 and tkind[i - 1] == K_NAME:
+            flag = 1
+        cz.append(flag)
+    cz.reverse()
 
 
 def isop(s):
@@ -198,6 +212,17 @@ def mov(x, y):
     emit(x, x); emit(T, T); emit(T, y); emit(x, T)
 
 
+def setto(x, e):
+    """x = e; a literal is loaded as 0 - (-c): 2 steps instead of 4"""
+    c = constval(e)
+    if c is None:
+        mov(x, e)
+    else:
+        clr(x)
+        if c != 0:
+            emit(x, lit(-c))
+
+
 def jnz(d, l):
     """goto l if cell d != 0 (3 steps)"""
     emit(d, ZERO, l); emit(T, T); emit(T, d, l)
@@ -291,9 +316,24 @@ def is_stable(c):
     return c < 6 or c >= POOLB or c in tset
 
 
+def isfinal():
+    """true when the operation just parsed is the last one of an expression whose value goes to `want`"""
+    return want != 0 and pend == wantp and tkind[tp] == K_OP and tval[tp] in (";", ",", ")")
+
+
+def result_cell(d0, l, r, op):
+    """cell for the result of an operation on l and r: the destination when final and safe, else temp d0"""
+    t = tmp(d0)
+    if isfinal():
+        if op == "-" and r == want and l != want:
+            return t
+        return want
+    return t
+
+
 def snapshot_global(c, d0):
     """left operand that is a global scalar must be copied before a later call can change it"""
-    if c in gvarcells:
+    if c in gvarcells and cz[tp]:
         t = tmp(d0)
         mov(t, c)
         return t
@@ -323,7 +363,7 @@ def lookup_array(name):
 
 
 def primary():
-    global tp, depth
+    global tp, depth, pend
     k = tkind[tp]
     v = tval[tp]
     if k == K_NUM:
@@ -331,7 +371,9 @@ def primary():
         return lit(v)
     if k == K_OP and v == "(":
         tp += 1
+        pend += 1
         c = expression()
+        pend -= 1
         eatop(")")
         return c
     if k != K_NAME:
@@ -343,10 +385,12 @@ def primary():
         tp += 1
         base, size = lookup_array(v)
         d0 = depth
+        pend += 1
         i = expression()
+        pend -= 1
         eatop("]")
         depth = d0 + 1
-        res = tmp(d0)
+        res = result_cell(d0, 0, 0, "")
         p0 = pc()
         wpatch = p0 + 18 + 1
         emit(T, T); emit(T, i)
@@ -358,7 +402,7 @@ def primary():
 
 
 def unary():
-    global tp, depth
+    global tp, depth, pend
     if isop("-"):
         tp += 1
         if tkind[tp] == K_NUM:
@@ -366,7 +410,9 @@ def unary():
             tp += 1
             return lit(-v)
         d0 = depth
+        pend += 1
         e = unary()
+        pend -= 1
         if depth == d0:
             depth = d0 + 1
             res = tmp(d0)
@@ -402,7 +448,10 @@ def mul_const(res, x, c):
     if m & (m - 1):
         emit(U, U); emit(U, x)                     # U = -x
     if res != x:
-        mov(res, x)
+        if m & (m - 1):
+            emit(res, res); emit(res, U)           # res = x  (U = -x)
+        else:
+            mov(res, x)
     for bit in range(nb - 2, -1, -1):
         emit(T, T); emit(T, res); emit(res, T)     # res += res
         if (m >> bit) & 1:
@@ -477,25 +526,39 @@ def emit_mul_routine():
 
 
 def add_sub(res, l, r, op):
+    """res = l op r.  res never equals r, except for '+' (then l and r are swapped); for '-' res == r is excluded"""
+    cl = constval(l)
+    cr = constval(r)
     if op == "+":
+        if r == res and l != res:
+            l, r = r, l
+            cl, cr = cr, cl
         if l == res:
-            if r == ONE:
-                emit(res, NEG1)
-            elif r == NEG1:
-                emit(res, ONE)
+            if cr is not None:
+                emit(res, lit(-cr))                # res += c
             else:
                 emit(T, T); emit(T, r); emit(res, T)
         else:
-            emit(res, res); emit(T, T); emit(T, r); emit(res, T); emit(T, T); emit(T, l); emit(res, T)
+            if cl is not None and cr is None:
+                l, r = r, l
+                cl, cr = cr, cl
+            if cr is not None:
+                emit(res, res); emit(T, T); emit(T, l); emit(res, T); emit(res, lit(-cr))
+            else:
+                emit(res, res); emit(T, T); emit(T, r); emit(res, T); emit(T, T); emit(T, l); emit(res, T)
     else:
         if l == res:
             emit(res, r)
+        elif cl is not None and cr is None:
+            emit(res, res); emit(res, r)           # res = -r
+            if cl != 0:
+                emit(res, lit(-cl))                # res += c
         else:
             emit(res, res); emit(T, T); emit(T, l); emit(res, T); emit(res, r)
 
 
 def term():
-    global tp, depth
+    global tp, depth, pend
     d0 = depth
     l = unary()
     while isop("*"):
@@ -503,8 +566,10 @@ def term():
         depth = d0 + 1
         tmp(d0)
         l = snapshot_global(l, d0)
+        pend += 1
         r = unary()
-        res = tmp(d0)
+        pend -= 1
+        res = result_cell(d0, l, r, "*")
         gen_mul(res, l, r)
         depth = d0 + 1
         l = res
@@ -512,7 +577,7 @@ def term():
 
 
 def additive():
-    global tp, depth
+    global tp, depth, pend
     d0 = depth
     l = term()
     while isop("+") or isop("-"):
@@ -521,8 +586,10 @@ def additive():
         depth = d0 + 1
         tmp(d0)
         l = snapshot_global(l, d0)
+        pend += 1
         r = term()
-        res = tmp(d0)
+        pend -= 1
+        res = result_cell(d0, l, r, op)
         add_sub(res, l, r, op)
         depth = d0 + 1
         l = res
@@ -583,14 +650,16 @@ def cmp_value(op, l, r, res):
 
 def cmp_tail(l, d0):
     """continue a left-associative chain of comparisons; l is the value so far"""
-    global tp, depth
+    global tp, depth, pend
     while iscmp():
         op = tval[tp]
         tp += 1
         depth = d0 + 1
         tmp(d0)
         l = snapshot_global(l, d0)
+        pend += 1
         r = additive()
+        pend -= 1
         res = tmp(d0)
         cmp_value(op, l, r, res)
         depth = d0 + 1
@@ -632,17 +701,21 @@ def cond(lf):
 # ------------------------------------------------------------------ calls
 def call(name):
     """name '(' args ')' ; returns the operand cell holding the result"""
-    global tp, depth
+    global tp, depth, pend, want, wantp, stmtcall
+    disc = stmtcall                                # statement call: the result is not used
+    stmtcall = False
     if name == "getc" or name == "putc":
         tp += 1                                    # '('
         d0 = depth
         if name == "getc":
             eatop(")")
             depth = d0 + 1
-            res = tmp(d0)
+            res = result_cell(d0, 0, 0, "")
             emit(T, T); emit(T, IN_ADDR); emit(res, res); emit(res, T)
             return res
+        pend += 1
         v = expression()
+        pend -= 1
         eatop(")")
         emit(T, T); emit(T, v); emit(N - 1, T)
         depth = d0
@@ -659,16 +732,20 @@ def call(name):
     tp += 1                                        # '('
     d0 = depth
     args = []
+    sw, swp = want, wantp
     if not isop(")"):
         while True:
+            j = len(args)
+            pend += 1
+            if selfcall or cz[tp] or j >= nparams:
+                want = 0
+            else:
+                want = pcells[j]                   # compute the argument straight into the parameter cell
+                wantp = pend
             a = expression()
-            if selfcall:
-                if not is_stable(a):
-                    t = tmp(depth)
-                    depth += 1
-                    mov(t, a)
-                    a = t
-            elif a in gvarcells:
+            pend -= 1
+            want, wantp = sw, swp
+            if (selfcall and a in pcells[:j]) or (a in gvarcells and cz[tp]):
                 t = tmp(depth)
                 depth += 1
                 mov(t, a)
@@ -685,13 +762,16 @@ def call(name):
         saved = [f_ra] + f_local_order + [tcells[i] for i in range(d0)]
         push_cells(saved)
     for i in range(nparams):
-        mov(pcells[i], args[i])
+        setto(pcells[i], args[i])
     set_ra(ra, pc() + 6 + 3)
     jmp(entry)
     if selfcall:
         pop_cells(saved)
+    if disc:
+        depth = d0
+        return ZERO
     depth = d0 + 1
-    res = tmp(d0)
+    res = result_cell(d0, 0, 0, "")
     mov(res, RV)
     return res
 
@@ -718,13 +798,20 @@ def declare_local(name):
 
 
 def do_return_value(v):
-    mov(RV, v)
+    setto(RV, v)
     jmpi(f_ra)
 
 
+stmtmap = []     # (pc, source line) at each statement start; only written when V1C_MAP is set (profiling aid)
+
+
 def statement():
-    global tp, depth
+    global tp, depth, pend, want, wantp, stmtcall
     depth = 0
+    pend = 0
+    want = 0
+    stmtcall = False
+    stmtmap.append((pc(), tline[tp]))
     k = tkind[tp]
     v = tval[tp]
     if k == K_KW:
@@ -765,7 +852,10 @@ def statement():
             tp += 1
             if isop(";"):
                 err("bare 'return;' is not allowed")
+            want = RV
+            wantp = 0
             e = expression()
+            want = 0
             eatop(";")
             do_return_value(e)
         else:
@@ -777,12 +867,12 @@ def statement():
     if isop("="):
         tp += 1
         x = lookup_scalar(v)
+        want = x
+        wantp = 0
         e = expression()
+        want = 0
         eatop(";")
-        if e == ZERO:
-            clr(x)
-        else:
-            mov(x, e)
+        setto(x, e)
     elif isop("["):
         tp += 1
         base, size = lookup_array(v)
@@ -806,6 +896,7 @@ def statement():
         emit(0, 0)
         emit(0, U)
     elif isop("("):
+        stmtcall = True
         call(v)
         eatop(";")
     else:
@@ -941,6 +1032,11 @@ def main():
         sys.stderr.write("v1c: %s\n" % e)
         return 1
     sys.stdout.write("\n".join(str(w) for w in words) + "\n")
+    import os
+    if os.environ.get("V1C_MAP"):
+        with open(os.environ["V1C_MAP"], "w") as f:
+            for a, l in stmtmap:
+                f.write("%d %d\n" % (a, l))
     return 0
 
 

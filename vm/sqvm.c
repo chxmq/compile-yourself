@@ -1,7 +1,7 @@
 /*
  * sqvm: exact clone of the official "subtract and branch if negative" VM.
  *
- *   usage: sqvm [--trace FILE] program.txt < input.txt
+ *   usage: sqvm [--trace FILE | --profile FILE] program.txt < input.txt
  *   env:   SQ_LIMIT   step limit (default 100000000)
  *          VM_STATS   if set, print "halted after N steps" to stderr on normal halt
  *
@@ -130,10 +130,35 @@ static int run_trace(long limit, long *psteps, uint32_t ncode) {
     return rc;
 }
 
+/* per-pc hit counts: --profile FILE writes "pc count" lines for every executed instruction */
+static unsigned long long *prof_hits;
+static int run_prof(long limit, long *psteps) {
+    int32_t pc = 0;
+    long steps = 0;
+    int rc = 0;
+    for (;;) {
+        if ((uint32_t)pc > (uint32_t)(N - 3)) break;
+        if (steps == limit) { rc = 2; break; }
+        steps++;
+        prof_hits[pc / 3]++;
+        int32_t a = mem[pc], b = mem[pc + 1], c = mem[pc + 2];
+        if ((uint32_t)a >= (uint32_t)N || (uint32_t)b >= (uint32_t)N) { ERR_RANGE(pc, a, b, c); rc = 1; break; }
+        if (a == IN_ADDR) { ERR_IN(pc, a, b, c); rc = 1; break; }
+        int32_t vb = (b == IN_ADDR) ? (int32_t)read_in() : mem[b];
+        int32_t r = (int32_t)((uint32_t)mem[a] - (uint32_t)vb);
+        if (a == OUT_ADDR) putchar_unlocked((unsigned char)(r & 0xff));
+        else mem[a] = r;
+        pc = (r < 0) ? c : pc + 3;
+    }
+    *psteps = steps;
+    return rc;
+}
+
 int main(int argc, char **argv) {
-    const char *tracefile = NULL, *prog = NULL;
+    const char *tracefile = NULL, *prog = NULL, *proffile = NULL;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--trace") && i + 1 < argc) tracefile = argv[++i];
+        else if (!strcmp(argv[i], "--profile") && i + 1 < argc) proffile = argv[++i];
         else if (!prog) prog = argv[i];
     }
     if (!prog) { fprintf(stderr, "usage: %s [--trace FILE] program.txt < input.txt\n", argv[0]); return 1; }
@@ -146,7 +171,15 @@ int main(int argc, char **argv) {
 
     long steps = 0;
     int rc;
-    if (tracefile) {
+    if (proffile) {
+        prof_hits = calloc(N / 3 + 1, sizeof *prof_hits);
+        rc = run_prof(limit, &steps);
+        FILE *pf = fopen(proffile, "w");
+        if (pf) {
+            for (int i = 0; i < N / 3; i++) if (prof_hits[i]) fprintf(pf, "%d %llu\n", i * 3, prof_hits[i]);
+            fclose(pf);
+        }
+    } else if (tracefile) {
         tf = fopen(tracefile, "wb");
         if (!tf) { fprintf(stderr, "can't open %s\n", tracefile); return 1; }
         uint32_t hdr[2] = { 0x31545153u, (uint32_t)nwords };
