@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sqvm trace viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#111418; --fg:#d8dee9; --dim:#7b8696; --panel:#1a1f26; --line:#2b3340; --accent:#ffd54a; --patch:#ff4fd8; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; }
+  header { padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  header h1 { font-size:14px; margin:0; }
+  main { display:flex; gap:12px; padding:12px; flex-wrap:wrap; }
+  #left { flex:1 1 560px; min-width:300px; }
+  #right { flex:0 0 440px; max-width:100%; }
+  canvas { background:#000; border:1px solid var(--line); image-rendering:pixelated; max-width:100%; display:block; }
+  .panel { background:var(--panel); border:1px solid var(--line); padding:8px; margin-bottom:12px; }
+  button, input[type=file], select { background:#252c36; color:var(--fg); border:1px solid var(--line); padding:3px 8px; font:inherit; }
+  button { cursor:pointer; }
+  #scrub { width:100%; }
+  table { border-collapse:collapse; width:100%; }
+  td, th { padding:1px 6px; text-align:right; }
+  th { color:var(--dim); font-weight:normal; }
+  tr.cur td { background:#3a3410; color:var(--accent); }
+  td.patched { color:var(--patch); font-weight:bold; }
+  td.addr { text-align:left; color:var(--dim); }
+  .legend span { display:inline-block; width:12px; height:12px; vertical-align:middle; margin:0 4px 0 10px; border:1px solid #444; }
+  #log div { color:var(--dim); } #log div.new { color:var(--patch); }
+  #msg { color:#ff8a80; }
+  .dim { color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>sqvm trace viewer</h1>
+  <label>trace (<code>vm/sqvm --trace FILE</code>): <input type="file" id="tfile"></label>
+  <label>program (optional, shows original values): <input type="file" id="pfile"></label>
+  <span id="msg"></span>
+</header>
+<main>
+  <div id="left">
+    <div class="panel">
+      <div>
+        <button id="play">Play</button>
+        <button id="back">-1</button><button id="fwd">+1</button>
+        <button id="prevw" title="jump to previous code write">&lt; write</button><button id="nextw" title="jump to next code write">write &gt;</button>
+        speed <select id="speed"><option value="1">1 step/frame</option><option value="4">4</option><option value="20" selected>20</option><option value="100">100</option><option value="500">500</option></select>
+        recency fade <select id="fade"><option value="30">30 steps</option><option value="200" selected>200</option><option value="2000">2000</option><option value="0">none (hit count)</option></select>
+      </div>
+      <input type="range" id="scrub" min="0" max="0" value="0">
+      <div id="status" class="dim">no trace loaded</div>
+      <div class="legend">
+        <span style="background:#101820"></span>never run
+        <span style="background:#2a6f4a"></span>executed (fades)
+        <span style="background:#3d6bff"></span>hot (hit count)
+        <span style="background:var(--accent)"></span>current instruction
+        <span style="background:var(--patch)"></span>word written by running code (patched)
+      </div>
+    </div>
+    <canvas id="cv" width="10" height="10"></canvas>
+    <div class="dim">Each square is one memory word of the loaded file. Rows are 48 words (16 instructions). Hover for details. Click a word to centre the disassembly there.</div>
+  </div>
+  <div id="right">
+    <div class="panel"><b>Instructions around pc</b> <span class="dim">(a b c; <span style="color:var(--patch)">magenta</span> = patched after load)</span>
+      <table id="dis"></table></div>
+    <div class="panel"><b>Hover</b><div id="hover" class="dim">-</div></div>
+    <div class="panel"><b>Code writes so far (newest first)</b><div id="log"></div></div>
+  </div>
+</main>
+<script>
+"use strict";
+const COLS = 48;                       // multiple of 3, so an instruction never wraps a row after word 0..2 + 3k... (rows start at word 0)
+const MAGIC = 0x31545153;
+
+// ---------------------------------------------------------------- parsing (also used by the Node harness)
+// Returns {codeWords, events} with events as parallel typed arrays:
+//   kind[i]: 0 = executed instruction at addr[i]; 1 = write of val[i] to code cell addr[i]
+//   step[i]: number of instructions executed up to and including this event (writes carry their instruction's step)
+function parseTrace(buf) {
+  const u = new Uint32Array(buf.byteLength >> 2 << 2 === buf.byteLength ? buf : buf.slice(0, buf.byteLength >> 2 << 2));
+  if (u.length < 2 || u[0] !== MAGIC) throw new Error("not an SQT1 trace (bad magic)");
+  const codeWords = u[1];
+  let n = 0;
+  for (let i = 2; i < u.length; ) { if (u[i] & 1) { i += 2; } else i += 1; n++; }
+  const kind = new Uint8Array(n), addr = new Uint32Array(n), val = new Int32Array(n), step = new Uint32Array(n);
+  let e = 0, st = 0, truncated = false;
+  for (let i = 2; i < u.length; ) {
+    const x = u[i];
+    if (x & 1) {
+      if (i + 1 >= u.length) { truncated = true; break; }
+      kind[e] = 1; addr[e] = x >>> 1; val[e] = u[i + 1] | 0; step[e] = st; i += 2;
+    } else { st++; kind[e] = 0; addr[e] = x >>> 1; step[e] = st; i += 1; }
+    e++;
+  }
+  return { codeWords, kind: kind.subarray(0, e), addr: addr.subarray(0, e), val: val.subarray(0, e), step: step.subarray(0, e), steps: st, truncated };
+}
+function parseProgram(text) {
+  const w = text.split(/\s+/).filter(s => s.length).map(s => parseInt(s, 10) | 0);
+  return Int32Array.from(w);
+}
+if (typeof module !== "undefined") { module.exports = { parseTrace, parseProgram }; }
+
+// ---------------------------------------------------------------- viewer (browser only)
+if (typeof document !== "undefined") (function () {
+  const $ = id => document.getElementById(id);
+  let T = null, prog = null;
+  // replay state
+  let evIdx = 0, curStep = 0, lastPc = -1;
+  let lastExec, hits, lastWrite, cur, orig, writeCount;
+  let writes = [];            // event indices of writes, ascending
+  let evAtStep = null;        // evAtStep[s] = number of events consumed once step s is done (s = 0..steps)
+  let playing = false;
+
+  function msg(t) { $("msg").textContent = t || ""; }
+
+  function reset() {
+    const n = T.codeWords;
+    lastExec = new Int32Array(n).fill(-1); hits = new Uint32Array(n);
+    lastWrite = new Int32Array(n).fill(-1); writeCount = new Uint32Array(n);
+    cur = new Int32Array(n); orig = new Int8Array(n);       // orig=1: original value known
+    if (prog) { for (let i = 0; i < n && i < prog.length; i++) { cur[i] = prog[i]; } orig.fill(1); }
+    evIdx = 0; curStep = 0; lastPc = -1;
+  }
+  function advanceTo(step) {
+    if (step < curStep) reset();
+    const stop = evAtStep[step];
+    for (; evIdx < stop; evIdx++) {
+      const a = T.addr[evIdx];
+      if (T.kind[evIdx] === 0) {
+        if (a < T.codeWords) { lastExec[a] = T.step[evIdx]; hits[a]++; }
+        lastPc = a;
+      } else if (a < T.codeWords) {
+        cur[a] = T.val[evIdx]; lastWrite[a] = T.step[evIdx]; writeCount[a]++;
+      }
+    }
+    curStep = step;
+  }
+
+  function load(buf) {
+    T = parseTrace(buf);
+    writes = [];
+    evAtStep = new Uint32Array(T.steps + 1);
+    for (let i = 0; i < T.kind.length; i++) if (T.kind[i] === 1) writes.push(i);
+    const starts = [];
+    for (let i = 0; i < T.kind.length; i++) if (T.kind[i] === 0) starts.push(i);
+    evAtStep[0] = 0;
+    for (let k = 1; k <= T.steps; k++) evAtStep[k] = k < T.steps ? starts[k] : T.kind.length;
+    // position k = after k instructions have completed; the highlighted instruction is the one that ran last.
+    $("scrub").max = T.steps; $("scrub").value = 0;
+    reset(); advanceTo(0);
+    msg(T.truncated ? "warning: trace truncated" : "");
+    draw();
+  }
+
+  // ---------------------------------------------------------------- drawing
+  const cv = $("cv"), ctx = cv.getContext("2d");
+  let cell = 8, focus = 0;
+  function layout() {
+    const rows = Math.ceil(T.codeWords / COLS);
+    const avail = Math.max(300, $("left").clientWidth - 4);
+    cell = Math.max(2, Math.min(14, Math.floor(avail / COLS)));
+    cv.width = COLS * cell; cv.height = rows * cell;
+  }
+  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  function color(i, fade) {
+    const le = lastExec[i];
+    if (lastWrite[i] >= 0) {
+      const age = curStep - lastWrite[i];
+      const t = age <= 40 ? 1 : Math.max(0.35, 1 - age / 4000);
+      return `rgb(${lerp(70, 255, t)},${lerp(20, 79, t)},${lerp(70, 216, t)})`;
+    }
+    if (le < 0) return "#101820";
+    if (fade === 0) {
+      const t = Math.min(1, Math.log2(1 + hits[i]) / 10);
+      return `rgb(${lerp(30, 61, t)},${lerp(70, 107, t)},${lerp(90, 255, t)})`;
+    }
+    const t = Math.max(0, 1 - (curStep - le) / fade);
+    return `rgb(${lerp(26, 42, t) | 0},${lerp(60, 170, t)},${lerp(70, 100, t)})`;
+  }
+  function draw() {
+    if (!T) return;
+    layout();
+    const fade = +$("fade").value;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, cv.width, cv.height);
+    const n = T.codeWords;
+    for (let i = 0; i < n; i++) {
+      const x = (i % COLS) * cell, y = Math.floor(i / COLS) * cell;
+      ctx.fillStyle = color(i, fade);
+      ctx.fillRect(x, y, cell - 1, cell - 1);
+    }
+    // writes in the last few steps get a bright outline; current instruction gets yellow cells
+    ctx.lineWidth = 1;
+    if (lastPc >= 0) {
+      for (let k = 0; k < 3; k++) {
+        const i = lastPc + k; if (i >= n) break;
+        const x = (i % COLS) * cell, y = Math.floor(i / COLS) * cell;
+        ctx.fillStyle = "#ffd54a"; ctx.fillRect(x, y, cell - 1, cell - 1);
+        if (lastWrite[i] >= 0) { ctx.strokeStyle = "#ff4fd8"; ctx.strokeRect(x + 0.5, y + 0.5, cell - 2, cell - 2); }
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      if (lastWrite[i] >= 0 && curStep - lastWrite[i] <= 3) {
+        const x = (i % COLS) * cell, y = Math.floor(i / COLS) * cell;
+        ctx.strokeStyle = "#fff"; ctx.strokeRect(x - 0.5, y - 0.5, cell + 0, cell + 0);
+      }
+    }
+    // status
+    $("status").textContent = `step ${curStep} / ${T.steps}   code words ${T.codeWords}   code writes so far ${(function () { let c = 0; for (const w of writes) { if (w < evIdx) c++; else break; } return c; })()} / ${writes.length}` +
+      (lastPc >= 0 ? `   last executed pc=${lastPc}` : "");
+    drawDis(); drawLog();
+  }
+
+  function fieldName(addr) { const base = addr - (addr - 6) % 3; return ["a", "b", "c"][addr - base] || "?"; }
+  function wordAt(i) { return i >= 0 && i < T.codeWords ? cur[i] : null; }
+  function drawDis() {
+    const base = focus ? focus : (lastPc >= 0 ? lastPc : 6);
+    let start = base - ((base - 6) % 3 + 3) % 3;     // align to instruction boundary (code starts at 6)
+    if (start < 6) start = 0;
+    let html = "<tr><th></th><th>addr</th><th>a</th><th>b</th><th>c</th></tr>";
+    for (let k = -4; k <= 8; k++) {
+      const p = start + 3 * k; if (p < 0 || p + 2 >= T.codeWords) continue;
+      const isCur = p === lastPc;
+      html += `<tr class="${isCur ? "cur" : ""}"><td class="addr">${isCur ? "&gt;" : ""} ${p}</td><td></td>`;
+      for (let f = 0; f < 3; f++) {
+        const a = p + f, v = cur[a];
+        const patched = lastWrite[a] >= 0;
+        const was = (patched && orig[a]) ? ` title="loaded value ${prog[a]}; written ${writeCount[a]}x, last at step ${lastWrite[a]}"` : (patched ? ` title="written ${writeCount[a]}x, last at step ${lastWrite[a]}"` : "");
+        html += `<td class="${patched ? "patched" : ""}"${was}>${(orig[a] || patched) ? v : "?"}</td>`;
+      }
+      html += "</tr>";
+    }
+    $("dis").innerHTML = html;
+  }
+  function drawLog() {
+    let html = "", shown = 0;
+    for (let k = writes.length - 1; k >= 0 && shown < 14; k--) {
+      const e = writes[k]; if (e >= evIdx) continue;
+      const a = T.addr[e], ins = a - (a >= 6 ? (a - 6) % 3 : a);
+      html += `<div class="${curStep - T.step[e] <= 3 ? "new" : ""}">step ${T.step[e]}: [${a}] (instr ${ins}, field ${a >= 6 ? fieldName(a) : "?"}) := ${T.val[e]}</div>`;
+      shown++;
+    }
+    $("log").innerHTML = html || "<div>(none yet)</div>";
+  }
+
+  // ---------------------------------------------------------------- interaction
+  function setStep(s) { s = Math.max(0, Math.min(T.steps, s)); advanceTo(s); $("scrub").value = s; focus = 0; draw(); }
+  $("scrub").addEventListener("input", e => { if (T) setStep(+e.target.value); });
+  $("back").onclick = () => T && setStep(curStep - 1);
+  $("fwd").onclick = () => T && setStep(curStep + 1);
+  $("nextw").onclick = () => { if (!T) return; for (const w of writes) if (T.step[w] > curStep) return setStep(T.step[w]); };
+  $("prevw").onclick = () => { if (!T) return; for (let k = writes.length - 1; k >= 0; k--) if (T.step[writes[k]] < curStep) return setStep(T.step[writes[k]]); };
+  $("fade").onchange = () => T && draw();
+  $("play").onclick = () => {
+    if (!T) return; playing = !playing; $("play").textContent = playing ? "Pause" : "Play";
+    if (playing && curStep >= T.steps) setStep(0);
+    if (playing) requestAnimationFrame(tick);
+  };
+  function tick() {
+    if (!playing) return;
+    if (curStep >= T.steps) { playing = false; $("play").textContent = "Play"; return; }
+    setStep(curStep + +$("speed").value);
+    requestAnimationFrame(tick);
+  }
+  function cellAt(ev) {
+    const r = cv.getBoundingClientRect(), sx = cv.width / r.width;
+    const x = Math.floor((ev.clientX - r.left) * sx / cell), y = Math.floor((ev.clientY - r.top) * sx / cell);
+    const i = y * COLS + x; return x >= 0 && x < COLS && i >= 0 && i < T.codeWords ? i : -1;
+  }
+  cv.addEventListener("mousemove", ev => {
+    if (!T) return; const i = cellAt(ev); if (i < 0) { $("hover").textContent = "-"; return; }
+    const ins = i >= 6 ? i - (i - 6) % 3 : -1;
+    $("hover").innerHTML = `word ${i}` + (ins >= 0 ? ` = field ${fieldName(i)} of instruction at ${ins}` : " (boot/constants)") +
+      `<br>value now: ${(orig[i] || lastWrite[i] >= 0) ? cur[i] : "unknown (load the program file)"}` +
+      `<br>executed as an instruction start ${hits[i]}x, last at step ${lastExec[i] >= 0 ? lastExec[i] : "-"}` +
+      `<br>written by code ${writeCount[i]}x` + (lastWrite[i] >= 0 ? `, last at step ${lastWrite[i]}` : "");
+  });
+  cv.addEventListener("click", ev => { if (!T) return; const i = cellAt(ev); if (i >= 0) { focus = i; drawDis(); } });
+  window.addEventListener("resize", () => T && draw());
+  $("tfile").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { load(await f.arrayBuffer()); } catch (err) { msg(String(err.message || err)); }
+  };
+  $("pfile").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    prog = parseProgram(await f.text());
+    if (T) { const s = curStep; reset(); advanceTo(s); draw(); }
+  };
+})();
+</script>
+</body>
+</html>

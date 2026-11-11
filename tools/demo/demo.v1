@@ -1,0 +1,16 @@
+// Demo for tools/viewer.html: array write/read (pointer access by self-modification)
+// and a self-recursive call (frame saved on the software stack).
+array a[4];
+func sum(n) {
+    if (n == 0) { return 0; }
+    return n + sum(n - 1);
+}
+func main() {
+    var i; var s;
+    i = 0;
+    while (i < 4) { a[i] = i * 2 + 1; i = i + 1; }
+    s = a[1] + a[3];
+    putc(48 + s);
+    putc(48 + sum(3));
+    putc(10);
+}
