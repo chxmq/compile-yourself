@@ -1,0 +1,56 @@
+// BIGMUL: two non-negative decimal integers (up to 40 digits), one per line.
+// Prints their product and a newline.  Schoolbook multiplication on digit arrays;
+// carries are resolved by repeated subtraction (v1 has no division).
+array X[100];     // digits of the two inputs, most significant first: first at 0.., second at 50..
+array R[100];     // product digits, least significant first (column sums before carrying)
+
+// reads one number starting at X[base]; stops at the first non-digit (newline or EOF); returns digit count
+func readnum(base) {
+    var n; var c; var go;
+    n = 0;
+    go = 1;
+    while (go) {
+        c = getc();
+        if (c < 48) { go = 0; } else {
+            if (c > 57) { go = 0; } else { X[base + n] = c - 48; n = n + 1; }
+        }
+    }
+    return n;
+}
+
+func main() {
+    var na; var nb; var i; var j; var ai; var k; var v; var carry; var t; var go;
+    na = readnum(0);
+    nb = readnum(50);
+    i = 0;
+    while (i < na) {
+        ai = X[na - 1 - i];
+        j = 0;
+        while (j < nb) {
+            R[i + j] = R[i + j] + ai * X[50 + nb - 1 - j];
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    k = 0;
+    carry = 0;
+    while (k < 90) {
+        v = R[k] + carry;
+        carry = 0;
+        while (v >= 10) { v = v - 10; carry = carry + 1; }
+        R[k] = v;
+        k = k + 1;
+    }
+    t = 89;
+    go = 1;
+    while (go) {
+        if (t == 0) { go = 0; } else {
+            if (R[t] == 0) { t = t - 1; } else { go = 0; }
+        }
+    }
+    while (t >= 0) {
+        putc(48 + R[t]);
+        t = t - 1;
+    }
+    putc(10);
+}

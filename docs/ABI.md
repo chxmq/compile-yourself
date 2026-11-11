@@ -174,3 +174,140 @@ Implemented by `toolkit/sqasm.py` (`Asm`, importable; the tier-2 compiler should
 - Exit codes: 1 for an error, 2 for a timeout.
 - `a`, `b` and `c` are all fetched before the write, so an instruction that patches its own `c` still uses the old `c`.
 - A program may have at most N-2 words.
+
+## Final layout (v1c codegen)
+
+`tier2/v1c.py` is the executable specification. `tier3.v1` must emit byte-identical output.
+Below, `emit(a,b,c)` appends an instruction. A missing `c` means "the address of the next instruction".
+`pc` is the address of the next word to be emitted. Code starts at address 6, so `pc = 6 + len(code)`.
+All patch-word addresses are absolute and known at emission time (the patched instruction sits at a fixed offset from `pc`).
+
+**Output format.** Words 0 .. `code_end + len(pool) - 1`, one decimal word per line, each followed by `\n`.
+
+| Addresses | Content |
+|---|---|
+| 0..5 | `5 3 <LBOOT>`, then `0 1 -1` (see the assembler layout above). |
+| 6..code_end-1 | Code. |
+| code_end.. | Literal pool, in allocation order. |
+| N-3 downwards | Zero-initialised data cells. They are not in the file (the file ends at the pool). |
+
+`code_end = 6 + len(code)`. Operand encoding during compilation:
+
+| Value | Meaning |
+|---|---|
+| `>= 2^30` | Label `v - 2^30`. |
+| `>= 2^29` | Pool cell `v - 2^29`. |
+| otherwise | Absolute address. |
+
+Labels and pool refs are resolved after the last function is emitted. Only code words are decoded; pool values are literal.
+
+**Pool.** `lit(v)` returns ZERO, ONE or NEG1 for 0, 1 or -1.
+Otherwise it appends `v` to the pool and returns a new pool cell (no deduplication). Pool cell 0 is the stack pointer `SP`.
+Its initial value is `dp` at the end of compilation (the first free data cell), and the stack grows downwards from there.
+The same pool is used for return-address constants (`set_ra`).
+
+**Data cells.** `dp` starts at N-3. `newcell()` returns `dp`, then decrements it. Allocation order is exactly:
+
+1. `T`, `U`, `T1`, `RV` (the cells N-3, N-4, N-5, N-6).
+2. Source order of declarations:
+   - `var g;` takes one cell.
+   - `array a[s];` has `base = dp - s + 1`, `dp = base - 1`, and element `i` is at `base + i`.
+   - For `func`: `RA`, then the parameters in order, then each `var` at its declaration, and temporaries at first use.
+3. Multiply-routine cells `MA, MB, MR, MC, MNA, MRA` at first use (in that order) of a non-constant `*`.
+
+**Labels.** Numbered from 0 in creation order. Label 0 is `LBOOT`, created before the first declaration.
+Each `if` creates a label for else/end, and `while` creates 2 labels. The comparison value code creates 2 per comparison.
+
+**Temporaries.** `depth` counts reserved temps. Temp `i` is a function-local cell, created at first need.
+
+An expression returns an operand cell:
+- a variable cell,
+- a literal cell,
+- or temp `d0` (where `d0` is the depth at entry).
+
+A binary operator does the following:
+1. Parse `L`. Reserve temp `d0` (`depth = d0+1`).
+2. If `L` is a global scalar, copy it into temp `d0` (a call in `R` could change it).
+3. Parse `R`.
+4. Write the result to temp `d0`, then set `depth = d0+1`.
+
+The result cell never aliases `R`. Each statement resets `depth` to 0. The unary minus of a literal is folded into the literal.
+
+**Sequences** (`T`, `U`, `T1` are the scratch cells; every sequence clears them itself):
+
+| Name | Sequence |
+|---|---|
+| `mov x,y` | `x x; T T; T y; x T` (nothing if `x == y`). |
+| `jmp l` | `NEG1 ZERO l`. |
+| `jnz d,l` | `d ZERO l; T T; T d l`. |
+| `jz d,l` | `d ZERO pc+12; T T; T d pc+12; jmp l`. |
+| `diff t,x,y` (t = x-y) | `t t; T T; T x; t T; t y`. |
+| `add res,l,r`, `l == res` | `T T; T r; res T`. If `r` is ONE it is `res NEG1`; if NEG1, `res ONE`. |
+| `add`, else | `res res; T T; T r; res T; T T; T l; res T`. |
+| `sub`, `l == res` | `res r`. |
+| `sub`, else | `res res; T T; T l; res T; res r`. |
+| `jmpi cell` | `T T; T cell; w w; w T; NEG1 ZERO 0`, where `w` is the address of the last instruction's `c` word, i.e. `p+14`. |
+| `set_ra ra,addr` | `ra ra; ra lit(-addr)`. |
+
+**Compare codegen** (`cmp_jf(op,l,r,lf)`: jump to `lf` if false, fall through when true).
+Only the `r == ZERO` case is special-cased, plus `==`/`!=`, which swap if `l == ZERO`.
+
+- `==`, `!=`: use `d = l` if `r == ZERO`, else `diff T1,l,r` and `d = T1`. Then `jnz d,lf` for `==` and `jz d,lf` for `!=`.
+- `r == ZERO` with `<`: `l ZERO pc+6; jmp lf`.
+- `r == ZERO` with `>=`: `l ZERO lf`.
+- `r == ZERO` with `>`: `l ZERO lf; T T; T l pc+12; jmp lf`.
+- `r == ZERO` with `<=`: `l ZERO pc+9; T T; T l lf`.
+- Otherwise `<` is `lt_jf(l,r,lf)`, `>=` is `lt_jt(l,r,lf)`, `>` is `lt_jf(r,l,lf)`, and `<=` is `lt_jt(r,l,lf)`.
+  - `lt_jf(x,y,lf)` is, at `p`: `x ZERO p+27; y ZERO lf; diff T1,x,y; T1 ZERO p+30; jmp lf; y ZERO p+6`, with the true case falling out at `p+30`.
+  - `lt_jt(x,y,lt)` is: `x ZERO p+27; y ZERO p+33; diff T1,x,y; T1 ZERO lt; jmp p+33; y ZERO p+6; jmp lt`.
+- A comparison used as a value is: `cmp_jf to Lf; clr res; res NEG1; jmp Le; Lf: clr res; Le:`.
+  The `if`/`while` condition is parsed with `cond(lf)`, which fuses the first comparison with the branch.
+  Otherwise it does `jz value,lf`. A chained comparison materialises the first value.
+
+**Statements.**
+- `x = e` is `clr x` if `e` is ZERO, else `mov x,e`.
+- `if (c) A else B` is `cond(Lelse); A; jmp Lend; Lelse: B; Lend:`. Without an else, `Lelse` is placed after `A`.
+- `while (c) A` is `Ltop: cond(Lend); A; jmp Ltop; Lend:`.
+- `return e` is `mov RV,e; jmpi RA`. The function end is `clr RV; jmpi RA`.
+- `putc(e)` is `T T; T e; OUT T`, with value ZERO. `getc()` is `T T; T IN; res res; res T`.
+
+**Arrays** (`base` is a compile-time absolute address; `w` is the patched word of the `T` instruction; 9 steps):
+- `a[i]` read, with `p0 = pc`: `T T; T i; w w; w T; w lit(-base); T T; T <patched b>; res res; res T`. Here `w = p0+19`.
+- `a[i] = v`: first `pt` = temp `d0` is computed after the index and before `v`.
+  - If `i` is already `pt`: `pt lit(-base)`.
+  - Otherwise: `pt pt; T T; T i; pt T; pt lit(-base)`.
+  - Then `v` is evaluated.
+  - Then, with `p0 = pc`: `T T; T pt; w1 w1; w1 T; w2 w2; w2 T; w3 w3; w3 T; U U; U v; <0 0>; <0 U>`.
+  - Here `w1 = p0+30`, `w2 = p0+31`, `w3 = p0+33` (12 steps).
+
+**Calls** `f(e1..ek)`:
+1. Each arg is evaluated left to right into an operand. Self-calls copy every non-stable arg operand into a fresh temp.
+   Non-self calls copy only global scalars into a temp. Stable means a literal or a temp.
+2. Self-calls only: push `S = [RA] + params + locals declared so far + temps 0..d0-1`.
+   - The push is `T T; T SP`.
+   - Then, per cell `c`: `w1 w1; w1 T; w2 w2; w2 T; w3 w3; w3 T; U U; U c; <0 0>; <0 U>; T NEG1`, with `w1 = b+24`, `w2 = b+25`, `w3 = b+27` and `b` the start of the cell's block.
+   - Finally `SP lit(m)`.
+3. `mov param_i, arg_i` for each `i`.
+4. `set_ra RA_f, pc+9` (that is the address just after the jump), then `jmp entry`.
+5. Self-calls only: pop. This is `SP lit(-m); T T; T SP`, then per cell: `w w; w T; U U; <U 0>; c c; c U; T NEG1`, with `w = b+10`, in the same cell order as the push.
+6. `depth = d0+1; mov res(temp d0), RV`.
+
+**Multiplication.**
+- If either operand is a literal `c`, it is inlined as Horner over the bits of `m = |c|`.
+  - `c == 0` is `clr res`.
+  - If `m` has more than one set bit, `U = -x` first (`U U; U x`).
+  - `mov res,x` if `res != x`.
+  - For `bit = nb-2 .. 0`: `T T; T res; res T` (that is, `res += res`), and if the bit is set, `res U`.
+  - If `c < 0`, `res` is then negated in place (`T T; U U; T res; U T; res res; res U`).
+- Otherwise: `mov MA,l; mov MB,r; set_ra MRA,pc+9; jmp LMUL; mov res,MR`.
+  - The routine is emitted once, after the last function.
+  - If `MB` or `MA` is in 0..23, it is the multiplier of a repeated addition (swapping if needed).
+  - Otherwise it is MSB-first shift-and-add for 32 bits.
+  - Exact code: see `emit_mul_routine`.
+
+**Program end.**
+- After the last function, `LMUL` code (if used).
+- `LBOOT: set_ra RA_main, pc+9; jmp main_entry; NEG1 ZERO -1`.
+- Then the pool.
+
+**Verification status.** The corpus and fuzz results are recorded in `tier2/BUILD.md`.
