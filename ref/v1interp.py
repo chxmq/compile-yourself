@@ -288,7 +288,8 @@ WRAP = "((%s+2147483648)&4294967295)-2147483648"
 
 
 class Gen:
-    def __init__(self, steps_enabled):
+    def __init__(self, steps_enabled, garbage=False):
+        self.garbage = garbage
         self.funcs = {}      # name -> nparams (defined so far)
         self.gscalars = set()
         self.garrays = {}
@@ -356,7 +357,7 @@ class Gen:
             decl.append("    if _S[0] > _SLIM: _steps()")
         for l in sorted(self.locals):
             if l not in [p for p, _ in params]:
-                decl.append("    l_%s = 0" % l)
+                decl.append("    l_%s = %s" % (l, "_g()" if self.garbage else "0"))
         self.out.extend(hdr + decl + lines)
 
     # statements --------------------------------------------------
@@ -377,7 +378,7 @@ class Gen:
             if n in self.funcs:
                 self.cerr(line, "local %r conflicts with a function name" % n)
             self.locals.add(n)
-            out.append(pad + "l_%s = 0" % n)  # (value undefined in v1)
+            out.append(pad + "l_%s = %s" % (n, "_g()" if self.garbage else "0"))  # (value undefined in v1)
         elif k == "assign":
             _, n, e, line = s
             tgt = self.scalar_target(n, line)
@@ -500,7 +501,7 @@ class Gen:
         return "%s %s %s" % (self.exprp(l, 1), op, self.exprp(r, 1)), 0, False
 
 
-def compile_v1(src_bytes, steps_enabled=False):
+def compile_v1(src_bytes, steps_enabled=False, garbage=False):
     if len(src_bytes) > MAX_SRC:
         raise CompileError("source larger than %d bytes" % MAX_SRC)
     try:
@@ -510,7 +511,7 @@ def compile_v1(src_bytes, steps_enabled=False):
         src = src_bytes.decode("latin-1")
     toks = lex(src)
     decls = Parser(toks).program()
-    g = Gen(steps_enabled)
+    g = Gen(steps_enabled, garbage)
     g.run(decls)
     header = []
     for n in sorted(g.gscalars):
@@ -520,7 +521,7 @@ def compile_v1(src_bytes, steps_enabled=False):
     return "\n".join(header + g.out) + "\n"
 
 
-def run(pysrc, data, max_depth, max_steps):
+def run(pysrc, data, max_depth, max_steps, garbage_seed=None):
     out = bytearray()
     pos = [0]
     D = [0]
@@ -546,7 +547,9 @@ def run(pysrc, data, max_depth, max_steps):
     def oob(i, name, size):
         raise RuntimeErr("array index %d out of range for %s[%d]" % (i, name, size))
 
-    env = {"_D": D, "_S": S, "_LIM": max_depth, "_SLIM": max_steps, "_depth": depth,
+    import random
+    rng = random.Random(garbage_seed)
+    env = {"_g": lambda: rng.randrange(-2**31, 2**31), "_D": D, "_S": S, "_LIM": max_depth, "_SLIM": max_steps, "_depth": depth,
            "_steps": steps, "_oob": oob, "_getc": getc, "_putc": putc}
     err = None
     try:
@@ -569,6 +572,8 @@ def main():
     ap.add_argument("--max-steps", type=int, default=0, help="limit (loop iterations + calls); 0 = none")
     ap.add_argument("--max-depth", type=int, default=1000)
     ap.add_argument("--count-main", action="store_true", help="count main as a call level (stricter)")
+    ap.add_argument("--garbage", type=int, default=None, metavar="SEED",
+                    help="initialise locals with random values (finds reads of uninitialised locals)")
     ap.add_argument("--dump-py", action="store_true")
     ap.add_argument("--check", action="store_true", help="only check validity")
     a = ap.parse_args()
@@ -581,7 +586,7 @@ def main():
 
     def ctarget():
         try:
-            cres["py"] = compile_v1(src, a.max_steps > 0)
+            cres["py"] = compile_v1(src, a.max_steps > 0, a.garbage is not None)
         except CompileError as e:
             cres["err"] = ("compile error: %s" % e, 2)
         except (RecursionError, MemoryError):
@@ -605,7 +610,7 @@ def main():
     res = {}
 
     def target():
-        res["r"] = run(py, data, lim, a.max_steps)
+        res["r"] = run(py, data, lim, a.max_steps, a.garbage)
 
     t = threading.Thread(target=target)
     t.start()
