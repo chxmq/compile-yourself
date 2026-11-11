@@ -24,3 +24,10 @@ Typical step costs: variable move 4, add/sub 3 to 7, compare-and-branch 3 to 9, 
 array write 12 plus the index, non-recursive call about 12 plus 4 per argument, return 5.
 A self-recursive call additionally pays 11 steps per live cell to push and 7 to pop.
 Multiplication by a literal is inline (3 steps per bit). A general `*` costs about 330 steps, or 30 + 3*b when one operand b is in 0..23.
+
+## Verification status (at the time of writing)
+
+- Corpus: 131 checks pass (the valid programs match their `.out`, and every invalid program is rejected). Max 70M steps (`loop_1e6.v1`, a 1M-iteration loop with 2 multiplies per iteration).
+- Fuzz: 1200 generated programs (seeds 1-100 and 101-1200) match the interpreter exactly; max 22M steps, max compile time 1 s.
+- BIGMUL: 319 cases (0*x, 40x40 digits of 9, random), max 0.67M steps. HANOI: n=1..8 exact, max 78K steps.
+- Not covered: the official VM was never run on the compiled output (Docker was unavailable).
