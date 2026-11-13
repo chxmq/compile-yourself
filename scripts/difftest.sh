@@ -18,7 +18,7 @@ for ((i=S; i<S+N; i++)); do
     steps=$(sed -n 's/^halted after \([0-9]*\) steps/\1/p' $tmp/run.err)
     [ -n "$steps" ] && [ "$steps" -gt "$maxsteps" ] && maxsteps=$steps
     if [ $rc -ne 0 ] || ! cmp -s $tmp/exp.out $tmp/got.out; then
-        echo "MISMATCH seed=$i size=$size rc=$rc: $(head -c 200 $tmp/run.err)"; bad=$((bad+1)); cp $tmp/p.v1 /private/tmp/claude-501/fail_$i.v1 2>/dev/null
+        echo "MISMATCH seed=$i size=$size rc=$rc: $(head -c 200 $tmp/run.err)"; bad=$((bad+1)); cp $tmp/p.v1 /tmp/llh_fail_$i.v1 2>/dev/null
     fi
 done
 echo "$N programs from seed $S, $bad failed; max steps $maxsteps; max compile time ${maxct}s"

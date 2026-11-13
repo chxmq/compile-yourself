@@ -16,7 +16,7 @@ for ((i=S; i<S+N; i++)); do
     rc=$?
     steps=$(sed -n 's/^halted after \([0-9]*\) steps/\1/p' $tmp/err)
     [ -n "$steps" ] && [ "$steps" -gt "$maxsteps" ] && maxsteps=$steps
-    if [ $rc -ne 0 ] || ! cmp -s $tmp/exp.txt $tmp/got.txt; then echo "MISMATCH seed=$i size=$size rc=$rc"; cp $tmp/p.v1 /private/tmp/claude-501/tfail_$i.v1; bad=$((bad+1)); fi
+    if [ $rc -ne 0 ] || ! cmp -s $tmp/exp.txt $tmp/got.txt; then echo "MISMATCH seed=$i size=$size rc=$rc"; cp $tmp/p.v1 /tmp/llh_tfail_$i.v1; bad=$((bad+1)); fi
 done
 echo "$N fuzz programs from seed $S, $bad failed; max steps $maxsteps"
 rm -rf $tmp
