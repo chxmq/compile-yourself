@@ -60,6 +60,10 @@ frame.
    call is snapshotted into a temporary before the call, to preserve left-to-right evaluation.
 5. Induction on call depth gives that each activation sees its own values. Tested by the Ackermann, fib, and
    depth-999/1000 corpus programs and fuzzing; not formally verified.
+- **Superoptimizer check of the idioms (`toolkit/superopt.py`, `docs/SUPEROPT.md`).** A bounded exhaustive search (C core,
+  Massalin 1987 style) over all 1..K instruction sequences confirmed that the hand-picked CLR/MOV/ADD/NEG/DBL/compare
+  idioms are minimal within the searched bounds, and found only one shorter branch idiom (`x == 0` in 3 instead of 4
+  instructions). It makes the `x < 0` path slower, and gcd got 12% slower in an experiment, so the compilers were not changed.
 
 ## Prior art used for ideas
 Sources consulted for ideas (no code was copied; the design above was built and tested here):
@@ -72,3 +76,4 @@ Sources consulted for ideas (no code was copied; the design above was built and 
 - Ken Thompson, "Reflections on Trusting Trust": the motivation for the DDC check. A self-hosted compiler binary can
   carry behaviour that is in no source file; recompiling the source with an independent compiler (v1c) and comparing
   exposes that.
+- Henry Massalin, "Superoptimizer: A Look at the Smallest Program" (ASPLOS 1987): inspiration for `toolkit/superopt.py`.

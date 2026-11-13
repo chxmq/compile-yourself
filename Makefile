@@ -17,6 +17,7 @@ test: vm
 	node tests/test_viewer_dom.js
 	scripts/ddc.sh
 	tests/test_ddc_detects_divergence.sh
+	tests/test_superopt.sh
 	@echo "ALL TESTS PASSED"
 
 bootstrap: vm
